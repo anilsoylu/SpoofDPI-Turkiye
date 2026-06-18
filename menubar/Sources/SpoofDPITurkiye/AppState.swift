@@ -114,12 +114,20 @@ final class AppState: ObservableObject {
     func toggle() {
         busy = true
         Task {
+            let wasRunning = running
             if running {
                 let r = CLI.off()
                 lastMessage = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
             } else {
                 let r = CLI.on()
                 lastMessage = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if lastMessage.isEmpty {
+                if wasRunning {
+                    lastMessage = lang == .tr ? "Koruma kapatıldı." : "Protection turned off."
+                } else {
+                    lastMessage = lang == .tr ? "Koruma açıldı." : "Protection turned on."
+                }
             }
             refresh()
             busy = false

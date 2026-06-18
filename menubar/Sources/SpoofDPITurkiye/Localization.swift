@@ -72,6 +72,15 @@ private let translations: [String: [Lang: String]] = [
     "settings.uninstall":       [.tr: "SpoofDPI'ı Kaldır",     .en: "Uninstall SpoofDPI"],
     "settings.quit":            [.tr: "Uygulamadan Çık",       .en: "Quit App"],
     "done":                     [.tr: "Bitti",                 .en: "Done"],
+
+    // MARK: - Durum kartı (kahraman) + geri bildirim + kurulum
+    "status.protected.title":   [.tr: "Korunuyorsunuz",        .en: "Protected"],
+    "status.protected.sub":     [.tr: "site korunuyor",        .en: "sites protected"],
+    "status.off.title":         [.tr: "Koruma kapalı",         .en: "Protection off"],
+    "status.off.sub":           [.tr: "Açmak için anahtarı kullanın", .en: "Use the switch to turn on"],
+    "btn.discordprofile":       [.tr: "Discord profili",       .en: "Discord profile"],
+    "install.incomplete":       [.tr: "Kurulum tamamlanmamış",  .en: "Setup incomplete"],
+    "install.run":              [.tr: "Terminal'de şunu çalıştırın:", .en: "Run this in Terminal:"],
 ]
 
 // MARK: - Çeviri fonksiyonu
