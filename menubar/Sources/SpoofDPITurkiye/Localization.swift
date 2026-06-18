@@ -43,6 +43,34 @@ private let translations: [String: [Lang: String]] = [
                                  .en: "Are you sure you want to completely uninstall SpoofDPI Türkiye?"],
     "uninstall.confirm.btn":    [.tr: "Kaldır",               .en: "Uninstall"],
     "cancel":                   [.tr: "İptal",                 .en: "Cancel"],
+
+    // MARK: - Native panel (yeni tasarım)
+    "app.title":                [.tr: "SpoofDPI Türkiye",      .en: "SpoofDPI Türkiye"],
+    "status.on":                [.tr: "Açık",                  .en: "On"],
+    "status.off.short":         [.tr: "Kapalı",                .en: "Off"],
+    "row.protection":           [.tr: "Koruma",                .en: "Protection"],
+    "row.port":                 [.tr: "Port",                  .en: "Port"],
+    "row.domains.count":        [.tr: "alan adı",              .en: "domains"],
+    "section.domains":          [.tr: "ALAN ADLARI",           .en: "DOMAINS"],
+    "domains.empty":            [.tr: "Henüz alan adı yok",    .en: "No domains yet"],
+    "domains.add":              [.tr: "Alan adı ekle",         .en: "Add domain"],
+    "domains.add.placeholder":  [.tr: "ornek.com",             .en: "example.com"],
+    "footer.test":              [.tr: "Bağlantı testi",        .en: "Connection test"],
+    "footer.settings":          [.tr: "Ayarlar",               .en: "Settings"],
+    // Bağlantı testi sayfası
+    "test.title":               [.tr: "Bağlantı Testi",        .en: "Connection Test"],
+    "test.run":                 [.tr: "Testi Çalıştır",        .en: "Run Test"],
+    "test.idle":                [.tr: "Test edilmedi",         .en: "Not tested"],
+    "test.reachable":           [.tr: "Erişilebilir",          .en: "Reachable"],
+    "test.unreachable":         [.tr: "Erişilemiyor",          .en: "Unreachable"],
+    // Ayarlar sayfası
+    "settings.title":           [.tr: "Ayarlar",               .en: "Settings"],
+    "settings.port":            [.tr: "Port",                  .en: "Port"],
+    "settings.language":        [.tr: "Dil",                   .en: "Language"],
+    "settings.version":         [.tr: "Sürüm",                 .en: "Version"],
+    "settings.uninstall":       [.tr: "SpoofDPI'ı Kaldır",     .en: "Uninstall SpoofDPI"],
+    "settings.quit":            [.tr: "Uygulamadan Çık",       .en: "Quit App"],
+    "done":                     [.tr: "Bitti",                 .en: "Done"],
 ]
 
 // MARK: - Çeviri fonksiyonu

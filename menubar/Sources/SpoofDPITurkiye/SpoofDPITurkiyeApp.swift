@@ -18,22 +18,13 @@ struct SpoofDPITurkiyeApp: App {
     @StateObject private var state = AppState()
 
     var body: some Scene {
-        // ANA arayüz: menü çubuğu popover paneli
+        // Tek arayüz: menü çubuğu popover paneli (ayrı pencere yok)
         MenuBarExtra {
             MenuBarPanel()
                 .environmentObject(state)
         } label: {
-            // Duruma göre ikon: açık=dolu kalkan, kapalı=içi boş kalkan
-            Image(systemName: state.running ? "shield.lefthalf.filled" : "shield")
+            Image(systemName: state.running ? "shield.fill" : "shield")
         }
         .menuBarExtraStyle(.window)
-
-        // OPSİYONEL: tam pencere (otomatik açılmaz; popover'dan "Detaylar" ile açılır)
-        Window("SpoofDPI Türkiye", id: "main") {
-            MainView()
-                .environmentObject(state)
-        }
-        .defaultSize(width: 1040, height: 720)
-        .windowResizability(.contentSize)
     }
 }

@@ -46,6 +46,10 @@ final class AppState: ObservableObject {
     @Published var lastMessage: String = ""
     @Published var testResults: [String: TestResult] = [:]
 
+    // Sheet sunumu
+    @Published var showTestSheet: Bool = false
+    @Published var showSettingsSheet: Bool = false
+
     // Çeviri kısayolu
     func t(_ key: String) -> String {
         Localization.t(key, lang: lang)
