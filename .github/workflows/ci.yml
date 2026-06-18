@@ -1,0 +1,34 @@
+name: ci
+
+# Her push ve PR'da derleme, vet, test ve format kontrolu calistirir.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest # proje yalnizca macOS'i hedefler
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Gofmt
+        run: test -z "$(gofmt -l .)"

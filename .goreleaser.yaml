@@ -1,0 +1,56 @@
+# GoReleaser yapılandırması — https://goreleaser.com
+# Asset isimleri install.sh/uninstall.sh'ın beklediği desenle BİREBİR eşleşmeli:
+#   spoofdpi-tr_<version>_darwin_<arch>.tar.gz   (arch: arm64 | x86_64)
+version: 2
+
+project_name: spoofdpi-tr
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: spoofdpi-tr
+    main: ./cmd/spoofdpi-tr
+    binary: spoofdpi-tr
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: default
+    # amd64 → x86_64 (upstream spoofdpi ve install.sh konvansiyonu)
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}'
+    formats:
+      - tar.gz
+    # Binary arşiv kökünde (wrap_in_directory yok) — install.sh "$TMP/spoofdpi-tr" bekler.
+    wrap_in_directory: false
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+release:
+  github:
+    owner: anilsoylu
+    name: SpoofDPI-Turkiye
+  draft: false
+  prerelease: auto
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
