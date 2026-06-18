@@ -1,0 +1,9 @@
+# Build çıktıları
+/bin/
+*.test
+# OS
+.DS_Store
+# Yerel çalışma/dağıtım dizini (kullanıcı home'unda oluşur ama her ihtimale karşı)
+.spoofdpi-tr/
+# Planlar repoya girmemeli (proje opensource)
+plans/
