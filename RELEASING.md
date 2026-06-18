@@ -40,7 +40,12 @@ goreleaser check                         # config doğrulaması
 
 ## Notlar
 
-- İlk release çıkana kadar `install.sh` 404 döner ve `go install` fallback'ini
-  önerir — bu beklenen davranıştır.
+- Release yalnızca **yönetici (manager) binary'sini** (`spoofdpi-tr`) içerir.
+  **tpws motoru release'e dahil DEĞİLDİR.** `install.sh`, tpws'i kullanıcı
+  makinesinde kaynaktan derler (`git clone --depth 1 https://github.com/bol-van/zapret`
+  → `make mac` → `~/.spoofdpi-tr/bin/tpws`). Güvenlik gereği indirilmiş binary
+  dağıtılmaz; bu yüzden GoReleaser yapılandırmasında tpws yoktur.
+- İlk release çıkana kadar `install.sh`, release bulamayınca `go install`
+  ile manager'ı kaynaktan derler — bu beklenen davranıştır.
 - Sürüm `main.version`'a `-ldflags "-X main.version={{.Version}}"` ile gömülür;
   `spoofdpi-tr version` bunu gösterir.

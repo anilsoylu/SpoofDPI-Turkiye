@@ -1,5 +1,7 @@
 # Build çıktıları
 /bin/
+bin/
+dist/
 *.test
 # OS
 .DS_Store
@@ -12,7 +14,9 @@ menubar/.build/
 *.app
 menubar/SpoofDPI-Türkiye.app/
 
-# Zapret 3. parti referans scriptleri — repoya gitmesin (telif/lisans)
+# Zapret 3. parti referans/clone — repoya gitmesin (telif/lisans, kaynaktan derlenir)
 reference/
-# Derlenmiş 3. parti motor binary
+zapret/
+# Derlenmiş 3. parti motor binary (tpws — install.sh kaynaktan derler)
 *.tpws
+tpws

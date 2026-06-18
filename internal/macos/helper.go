@@ -64,6 +64,16 @@ case "$cmd" in
     # PF + daemon yaşam döngüsünü yönetir. daemon_start her zaman bootout+
     # bootstrap yaptığından tpws taze başlar ve güncel hostlist'i yeniden okur.
     if [ -z "$port" ]; then echo "kullanim: start <port>" >&2; exit 2; fi
+    # GÜVENLİK: sudoers kuralı 'helper *' olduğundan kullanıcı bu root script'i
+    # doğrudan keyfi argümanla çağırabilir; Go tarafının int doğrulamasına
+    # GÜVENME. port'u burada, ayrıcalık sınırında doğrula: yalnızca 1-65535
+    # aralığında ondalık sayı. Aksi halde reddet (enjeksiyon/bozuk PF savunması).
+    case "$port" in
+      ''|*[!0-9]*) echo "gecersiz port: $port" >&2; exit 2 ;;
+    esac
+    if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+      echo "port 1-65535 araliginda olmali: $port" >&2; exit 2
+    fi
     write_anchor "$port"
     pfctl -f "$PF_CONF"
     pfctl -e 2>/dev/null || true

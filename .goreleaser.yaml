@@ -1,5 +1,7 @@
 # GoReleaser yapılandırması — https://goreleaser.com
-# Asset isimleri install.sh/uninstall.sh'ın beklediği desenle BİREBİR eşleşmeli:
+# Yalnızca yönetici (manager) binary'sini (spoofdpi-tr) derler.
+# tpws motoru burada DEĞİLDİR — install.sh onu kaynaktan derler (bol-van/zapret).
+# Asset isimleri install.sh'ın beklediği desenle BİREBİR eşleşmeli:
 #   spoofdpi-tr_<version>_darwin_<arch>.tar.gz   (arch: arm64 | x86_64)
 version: 2
 

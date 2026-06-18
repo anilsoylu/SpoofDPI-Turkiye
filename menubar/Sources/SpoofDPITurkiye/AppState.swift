@@ -77,6 +77,20 @@ final class AppState: ObservableObject {
     // MARK: - Servis durumu
 
     private func isServiceRunning() -> Bool {
+        // Birincil: yeni CLI'ın `status` çıktısını ayrıştır. Helper "tpws: calisiyor"
+        // satırını üretir (status komutu bunu yansıtır).
+        if cliInstalled {
+            let r = CLI.status()
+            let out = r.out.lowercased()
+            if out.contains("calisiyor") || out.contains("çalışıyor") {
+                return true
+            }
+            if out.contains("durdu") || out.contains("bos") || out.contains("boş") {
+                return false
+            }
+        }
+
+        // Yedek: launchctl üzerinden LaunchDaemon yüklü mü kontrol et.
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         process.arguments = ["list"]
@@ -176,15 +190,6 @@ final class AppState: ObservableObject {
         busy = true
         Task {
             CLI.setPort(p)
-            refresh()
-            busy = false
-        }
-    }
-
-    func update() {
-        busy = true
-        Task {
-            CLI.update()
             refresh()
             busy = false
         }

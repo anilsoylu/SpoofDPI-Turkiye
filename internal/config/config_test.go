@@ -71,6 +71,67 @@ func TestNormalizeDomains(t *testing.T) {
 	}
 }
 
+func TestValidDomain(t *testing.T) {
+	valid := []string{
+		"discord.com",
+		"a.b.c.example.co.uk",
+		"xn--nxasmq6b.example.com", // punycode
+		"my-host.example.org",
+		"1.2.3.4.sslip.io",
+	}
+	for _, d := range valid {
+		if !ValidDomain(d) {
+			t.Errorf("ValidDomain(%q)=false, geçerli olmalı", d)
+		}
+	}
+
+	invalid := []string{
+		"",                  // boş
+		"nodot",             // nokta yok
+		".leading.com",      // baş nokta
+		"trailing.com.",     // son nokta
+		"-lead.com",         // baş tire
+		"trail-.com",        // etiket sonu tire
+		"a..b.com",          // ardışık nokta
+		"evil.com;rm -rf /", // shell metakarakter
+		"$(reboot).com",     // command substitution
+		"a`whoami`.com",     // backtick
+		"a b.com",           // boşluk
+		"a\n.com",           // yeni satır
+		"under_score.com",   // alt çizgi
+		"UPPER.com",         // büyük harf (normalize öncesi reddedilmeli)
+		"a|b.com",           // pipe
+		"a/b.com",           // slash
+	}
+	for _, d := range invalid {
+		if ValidDomain(d) {
+			t.Errorf("ValidDomain(%q)=true, reddedilmeli (enjeksiyon/geçersiz)", d)
+		}
+	}
+}
+
+func TestNormalizeDomainsRejectsInjection(t *testing.T) {
+	in := []string{
+		"discord.com",
+		"evil.com;rm -rf /",
+		"$(reboot).com",
+		"a b.com",
+		"good.example.org",
+		"a`id`.com",
+		"nodot",
+	}
+	got := NormalizeDomains(in)
+	want := map[string]bool{"discord.com": true, "good.example.org": true}
+	if len(got) != len(want) {
+		t.Fatalf("normalize enjeksiyonu süzmeli: bulundu %v", got)
+	}
+	for _, d := range got {
+		if !want[d] {
+			t.Errorf("beklenmeyen/zararlı domain geçti: %q", d)
+		}
+	}
+}
+
 func TestValidatePort(t *testing.T) {
 	// Geçersiz portlar hata döndürmeli.
 	for _, p := range []int{0, -1, 65536, -1000} {

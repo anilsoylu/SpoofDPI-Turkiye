@@ -10,20 +10,17 @@ Türkiye'de DPI (Derin Paket İnceleme) engellerini aşmak için macOS'a özel, 
 
 #### Ne yapar?
 
-[`xvzc/spoofdpi`](https://github.com/xvzc/spoofdpi) adlı resmî açık kaynak motorunu **sarmalayan** (fork değil) bir araçtır. Motor fork'lanmadığı için upstream güvenlik güncellemeleri ve iyileştirmeleri otomatik olarak kullanılabilir hale gelir.
+macOS'ta DPI tabanlı engelleri aşar. Yalnızca tarayıcıda değil, **masaüstü uygulamalarında da (Discord masaüstü dahil)** çalışır. Bunu macOS PF (Packet Filter) ile **transparan yönlendirme** sayesinde yapar: 443 (HTTPS) trafiği çekirdek seviyesinde yerel motora yönlendirilir, böylece sistem proxy'sini dinlemeyen uygulamalar bile kapsanır.
 
-#### Neden?
+Yalnızca seçtiğiniz domainler etkilenir (örn. Discord); geri kalan tüm trafik dokunulmadan, doğrudan akar.
 
-Eski [`renardozt/SpoofDPI-Turkiye`](https://github.com/renardozt/SpoofDPI-Turkiye) fork'unun iki temel sorunu vardı:
+#### Nasıl çalışır?
 
-1. **"Tüm internet yavaşlıyordu"** — eski araç sistem proxy'sini genel olarak açıyordu; tüm trafik proxy'den geçtiği için her şey yavaşlıyor ya da kesiliyordu.
-2. **"Port seçilemiyordu, Expo ve benzeri araçlarla çakışıyordu"** — port sabitti, değiştirilemiyordu.
-
-Bu araç her iki sorunu da çözer:
-
-- **PAC tabanlı seçici yönlendirme**: Yalnızca seçtiğiniz domainler (Discord vb.) yerel proxy'ye yönlendirilir; geri kalan tüm internet trafiği `DIRECT` gider. Proxy çökse bile yalnızca hedef domainler etkilenir.
-- **Yapılandırılabilir port**: Kurulum sırasında istediğiniz portu seçebilirsiniz.
-- **Tek komutla kurulum**: Non-developer kullanıcılar için interaktif kurulum sihirbazı.
+- **Motor: tpws** — açık kaynak ([bol-van/zapret](https://github.com/bol-van/zapret)) bir DPI-bypass motoru. Kurulum sırasında **kaynaktan derlenir** (`git clone --depth 1 zapret` → `make mac`) ve `~/.spoofdpi-tr/bin/tpws` altına yerleştirilir. İndirilmiş hazır binary kullanılmaz.
+- **macOS PF transparan redirect** — PF, 443 trafiğini tpws'in dinlediği porta (varsayılan **988**) yönlendirir. TLS şifresi çözülmez; yalnızca TLS `ClientHello` içindeki SNI kaydı yeniden düzenlenir (`--tlsrec=sni`) ve hedef sunucuya gönderilir.
+- **Seçici** — yalnızca hostlist'teki domainler desync edilir; gerisi pass-through (etkilenmez).
+- **Tek seferlik admin** — kurulumda bir kez yönetici onayı (parolasız helper + sudoers) verilir; sonrasında `on` / `off` parolasız çalışır.
+- **Port çakışmaz** — varsayılan port 988, Expo ve benzeri geliştirici araçlarıyla çakışmaz; istediğiniz portu seçebilirsiniz.
 
 #### Kurulum (macOS)
 
@@ -33,19 +30,23 @@ Terminale yapıştırın:
 curl -fsSL https://raw.githubusercontent.com/anilsoylu/SpoofDPI-Turkiye/master/install.sh | bash
 ```
 
-Kurulum size port ve hangi servislerin (Discord vb.) bypass edileceğini sorar. Geri kalan tüm internet trafiğiniz doğrudan (`DIRECT`) gider — yalnızca seçtiğiniz siteler proxy'den geçer.
+Kurulum betiği şunları yapar:
+1. Yönetici (manager) binary'sini indirir (release varsa) ya da kaynaktan derler (Go gerektirir — yoksa `brew install go` uyarısı verir).
+2. **tpws motorunu kaynaktan derler** (Xcode Command Line Tools / `cc` gerektirir — yoksa `xcode-select --install` uyarısı verir).
+3. İnteraktif kurulumu başlatır: port ve hangi servislerin (Discord vb.) bypass edileceğini sorar, tek seferlik yönetici onayı alır.
 
 #### Kullanım
 
 ```bash
-spoofdpi-tr on              # bypass'ı başlat
-spoofdpi-tr off             # durdur (proxy → DIRECT)
-spoofdpi-tr status          # durumu gör
-spoofdpi-tr add twitch.tv   # domain ekle
-spoofdpi-tr remove twitch.tv # domain çıkar
-spoofdpi-tr list            # bypass edilen domainleri listele
-spoofdpi-tr update          # spoofdpi motorunu güncelle
-spoofdpi-tr uninstall       # tamamen kaldır
+spoofdpi-tr on               # bypass'ı başlat (parolasız)
+spoofdpi-tr off              # durdur — 443 trafiği doğrudan akar (parolasız)
+spoofdpi-tr status           # servis ve yapılandırma durumunu gör
+spoofdpi-tr add discord.com  # bypass listesine domain ekle
+spoofdpi-tr remove discord.com # listeden domain çıkar
+spoofdpi-tr set a.com b.com  # listeyi verilen domainlerle tamamen değiştir
+spoofdpi-tr list             # bypass edilen domainleri listele
+spoofdpi-tr port 989         # tpws redirect portunu değiştir (1-65535)
+spoofdpi-tr uninstall        # tamamen kaldır
 ```
 
 #### Kaldırma (macOS)
@@ -62,19 +63,19 @@ Binary kuruluysa alternatif:
 spoofdpi-tr uninstall
 ```
 
-#### Nasıl çalışır?
+Kaldırma; helper'ı durdurur, `pf.conf`'u eski haline getirir ve sudoers / helper / anchor / LaunchDaemon dosyalarıyla `~/.spoofdpi-tr` dizinini (tpws binary dahil) siler.
 
-1. `spoofdpi-tr on` çalıştırıldığında araç bir PAC (Proxy Auto-Config) dosyası oluşturur.
-2. PAC dosyası, yalnızca seçilen domainler için `PROXY 127.0.0.1:<port>` döndürür; diğer tüm istekler `DIRECT` ile doğrudan bağlanır.
-3. macOS'un ağ ayarlarına bu PAC dosyası `file://` URL'i olarak tanıtılır.
-4. Resmî `spoofdpi` binary'si `-system-proxy=false` ile başlatılır (kendi sistem proxy'sini kurmasın; PAC bu işi üstlenir).
-5. LaunchAgent ile servis arka planda çalışır ve sistem yeniden başladığında otomatik olarak başlar.
+#### Güvenlik notları
+
+- **tpws kaynaktan derlenir** — hazır binary indirilmez; derlenen kaynak denetlenebilirdir (açık kaynak, [bol-van/zapret](https://github.com/bol-van/zapret)).
+- **TLS şifresi çözülmez** — araç trafiğinizin içeriğini göremez; yalnızca TLS el sıkışmasındaki SNI kaydını yeniden düzenler.
+- **Root neden gerekli?** — 443 trafiğini çekirdek seviyesinde yönlendirebilmek için PF/transparan redirect, root ayrıcalığı ister. Bu nedenle kurulumda bir kez yönetici onayı alınır; sonrası parolasız helper ile yürür.
 
 #### Önemli notlar
 
-- Yalnızca **macOS** desteklenmektedir.
-- `xvzc/spoofdpi` projesini fork'lamıyoruz; sarmalıyoruz. Tüm DPI bypass mantığı onlara aittir. Bu projenin katkısı PAC seçiciliği, yapılandırma yönetimi ve kullanıcı deneyimidir.
-- Upstream'e teşekkürler: [xvzc/SpoofDPI](https://github.com/xvzc/SpoofDPI) — Apache 2.0 lisanslı.
+- Yalnızca **macOS** desteklenmektedir (Apple Silicon + Intel).
+- Eski `xvzc/spoofdpi` + PAC mimarisi **artık kullanılmıyor**; motor olarak tpws/zapret kullanılır.
+- Teşekkürler: [bol-van/zapret](https://github.com/bol-van/zapret) — tpws DPI-bypass motoru.
 
 ---
 
@@ -86,20 +87,17 @@ A macOS-only manager CLI for bypassing DPI (Deep Packet Inspection) blocks in Tu
 
 #### What does it do?
 
-It **wraps** (not forks) the official [`xvzc/spoofdpi`](https://github.com/xvzc/spoofdpi) engine. Because we don't fork the engine, upstream security patches and improvements are available automatically.
+It bypasses DPI-based blocks on macOS. It works not only in the **browser** but also in **desktop applications (including the Discord desktop app)**. It achieves this via **transparent redirection** with macOS PF (Packet Filter): port 443 (HTTPS) traffic is redirected to the local engine at the kernel level, so even apps that do not honor the system proxy are covered.
 
-#### Why?
+Only the domains you choose are affected (e.g. Discord); all other traffic flows directly, untouched.
 
-The older [`renardozt/SpoofDPI-Turkiye`](https://github.com/renardozt/SpoofDPI-Turkiye) fork had two core problems:
+#### How it works
 
-1. **"The entire internet slowed down"** — the old tool set a global system proxy, routing all traffic through the proxy, causing slowdowns and disconnections.
-2. **"The port couldn't be changed, conflicting with Expo and similar tools"** — the port was hardcoded.
-
-This tool solves both:
-
-- **PAC-based selective routing**: Only your chosen domains (Discord etc.) are routed through the local proxy; all other internet traffic goes `DIRECT`. If the proxy crashes, only the target domains are affected.
-- **Configurable port**: Choose any port during setup.
-- **Single-command installation**: An interactive setup wizard for non-developers.
+- **Engine: tpws** — an open-source DPI-bypass engine ([bol-van/zapret](https://github.com/bol-van/zapret)). It is **built from source** during installation (`git clone --depth 1 zapret` → `make mac`) and placed at `~/.spoofdpi-tr/bin/tpws`. No prebuilt binary is downloaded.
+- **macOS PF transparent redirect** — PF redirects port 443 traffic to the port tpws listens on (default **988**). TLS is never decrypted; only the SNI record inside the TLS `ClientHello` is rewritten (`--tlsrec=sni`) before being sent to the destination server.
+- **Selective** — only domains in the hostlist are desynced; everything else passes through unaffected.
+- **One-time admin** — installation asks for admin approval once (passwordless helper + sudoers); afterwards `on` / `off` run without a password.
+- **No port conflicts** — the default port 988 does not collide with Expo and similar developer tools; you can pick any port.
 
 #### Installation (macOS)
 
@@ -109,19 +107,23 @@ Paste into your terminal:
 curl -fsSL https://raw.githubusercontent.com/anilsoylu/SpoofDPI-Turkiye/master/install.sh | bash
 ```
 
-The installer asks for your preferred port and which services (Discord etc.) to bypass. All other internet traffic goes directly (`DIRECT`) — only your selected sites go through the proxy.
+The installer:
+1. Downloads the manager binary (if a release exists) or builds it from source (requires Go — otherwise it tells you to `brew install go`).
+2. **Builds the tpws engine from source** (requires Xcode Command Line Tools / `cc` — otherwise it tells you to run `xcode-select --install`).
+3. Launches the interactive setup: asks for your port and which services (Discord etc.) to bypass, and takes a one-time admin approval.
 
 #### Usage
 
 ```bash
-spoofdpi-tr on              # start bypass
-spoofdpi-tr off             # stop (proxy → DIRECT)
-spoofdpi-tr status          # show status
-spoofdpi-tr add twitch.tv   # add a domain
-spoofdpi-tr remove twitch.tv # remove a domain
-spoofdpi-tr list            # list bypassed domains
-spoofdpi-tr update          # update the spoofdpi engine
-spoofdpi-tr uninstall       # remove everything
+spoofdpi-tr on               # start bypass (passwordless)
+spoofdpi-tr off              # stop — 443 traffic flows directly (passwordless)
+spoofdpi-tr status           # show service and config status
+spoofdpi-tr add discord.com  # add a domain to the bypass list
+spoofdpi-tr remove discord.com # remove a domain from the list
+spoofdpi-tr set a.com b.com  # replace the list entirely with given domains
+spoofdpi-tr list             # list bypassed domains
+spoofdpi-tr port 989         # change the tpws redirect port (1-65535)
+spoofdpi-tr uninstall        # remove everything
 ```
 
 #### Uninstallation (macOS)
@@ -138,19 +140,19 @@ If the binary is already installed, you can also run:
 spoofdpi-tr uninstall
 ```
 
-#### How it works
+Uninstall stops the helper, restores `pf.conf`, and removes the sudoers / helper / anchor / LaunchDaemon files along with the `~/.spoofdpi-tr` directory (including the tpws binary).
 
-1. When `spoofdpi-tr on` is run, it generates a PAC (Proxy Auto-Config) file.
-2. The PAC file returns `PROXY 127.0.0.1:<port>` only for selected domains; all other requests use `DIRECT`.
-3. macOS network settings are pointed at this PAC file via a `file://` URL.
-4. The official `spoofdpi` binary is launched with `-system-proxy=false` (so it does not set its own system proxy; the PAC handles routing).
-5. A LaunchAgent runs the service in the background and restarts it on login.
+#### Security notes
+
+- **tpws is built from source** — no prebuilt binary is downloaded; the compiled source is auditable (open source, [bol-van/zapret](https://github.com/bol-van/zapret)).
+- **TLS is not decrypted** — the tool cannot see the contents of your traffic; it only rewrites the SNI record in the TLS handshake.
+- **Why root is required** — redirecting port 443 traffic at the kernel level (PF / transparent redirect) requires root privileges. That is why installation takes a one-time admin approval; everything after runs via a passwordless helper.
 
 #### Notes
 
-- **macOS only.**
-- We wrap, not fork, `xvzc/spoofdpi`. All DPI bypass logic is theirs. This project's contribution is PAC-based selectivity, configuration management, and user experience.
-- Credit and thanks: [xvzc/SpoofDPI](https://github.com/xvzc/SpoofDPI) — Apache 2.0 licensed.
+- **macOS only** (Apple Silicon + Intel).
+- The old `xvzc/spoofdpi` + PAC architecture is **no longer used**; the engine is now tpws/zapret.
+- Credit and thanks: [bol-van/zapret](https://github.com/bol-van/zapret) — the tpws DPI-bypass engine.
 
 ---
 

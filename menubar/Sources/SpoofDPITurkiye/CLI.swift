@@ -76,10 +76,11 @@ enum CLI {
     static func remove(_ domain: String) -> (out: String, ok: Bool) { run(["remove", domain]) }
 
     @discardableResult
-    static func update() -> (out: String, ok: Bool) { run(["update"]) }
-
-    @discardableResult
     static func setPort(_ p: Int) -> (out: String, ok: Bool) { run(["port", "\(p)"]) }
+
+    /// `spoofdpi-tr status` çıktısını döndürür (durum tespiti için).
+    @discardableResult
+    static func status() -> (out: String, ok: Bool) { run(["status"]) }
 
     /// Domain listesini tamamen verilen liste ile değiştirir.
     @discardableResult
