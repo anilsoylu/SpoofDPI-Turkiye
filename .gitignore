@@ -7,3 +7,7 @@
 .spoofdpi-tr/
 # Planlar repoya girmemeli (proje opensource)
 plans/
+# SwiftUI menu bar build çıktıları
+menubar/.build/
+*.app
+menubar/SpoofDPI-Türkiye.app/

@@ -47,6 +47,8 @@ func main() {
 		err = runUpdate(args)
 	case "uninstall":
 		err = runUninstall(args)
+	case "port":
+		err = runPort(args)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -77,6 +79,7 @@ Komutlar:
   list           Bypass edilen domainleri göster
   update         Resmî spoofdpi binary'sini güncelle
   uninstall      Tüm yapılandırma ve servisi kaldır [-y]
+  port <numara>  Proxy portunu değiştir (1-65535)
   version        Sürümü göster
 `)
 }
@@ -314,6 +317,40 @@ func runList() error {
 	}
 	for _, d := range cfg.Domains {
 		fmt.Println(d)
+	}
+	return nil
+}
+
+func runPort(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("kullanım: spoofdpi-tr port <1-65535>")
+	}
+	n := 0
+	if _, err := fmt.Sscanf(args[0], "%d", &n); err != nil || args[0] == "" {
+		return fmt.Errorf("kullanım: spoofdpi-tr port <1-65535>")
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if err := config.ValidatePort(n); err != nil {
+		return err
+	}
+	cfg.Port = n
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+	// Port LaunchAgent plist argümanında geçtiğinden servis yeniden başlatılmalı.
+	if macos.CurrentStatus().ServiceLoaded {
+		if err := macos.Off(); err != nil {
+			return fmt.Errorf("servis durdurulurken hata: %w", err)
+		}
+		if err := macos.On(cfg); err != nil {
+			return fmt.Errorf("servis yeniden başlatılırken hata: %w", err)
+		}
+		fmt.Printf("✓ Port %d olarak ayarlandı — servis yeni portla yeniden başlatıldı\n", n)
+	} else {
+		fmt.Printf("✓ Port %d olarak ayarlandı\n", n)
 	}
 	return nil
 }
