@@ -5,6 +5,7 @@ import AppKit
 
 struct MenuBarPanel: View {
     @EnvironmentObject private var state: AppState
+    @State private var domainsText: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -17,6 +18,8 @@ struct MenuBarPanel: View {
         .padding(14)
         .frame(width: 312)
         // Materyal/popover varsayılan zemini — sistem otomatik adapte eder.
+        .onAppear { domainsText = state.domains.joined(separator: "\n") }
+        .onChange(of: state.domains) { domainsText = state.domains.joined(separator: "\n") }
         .sheet(isPresented: $state.showTestSheet) {
             ConnectionTestSheet().environmentObject(state)
         }
@@ -83,30 +86,25 @@ struct MenuBarPanel: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
 
-            if state.domains.isEmpty {
-                Text(state.t("domains.empty"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 4)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(state.domains, id: \.self) { domain in
-                            DomainRow(domain: domain) {
-                                state.removeDomain(domain)
-                            }
-                        }
-                    }
-                }
-                .frame(maxHeight: 160)
-            }
+            Text(state.t("domains.hint"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-            AddDomainRow(
-                addLabel: state.t("domains.add"),
-                placeholder: state.t("domains.add.placeholder")
-            ) { newDomain in
-                state.addDomain(newDomain)
+            TextEditor(text: $domainsText)
+                .font(.body.monospaced())
+                .frame(height: 110)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+
+            Button {
+                state.applyDomains(domainsText)
+            } label: {
+                Text(state.t("btn.saveapply"))
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
             .disabled(state.busy)
         }
     }
@@ -130,90 +128,5 @@ struct MenuBarPanel: View {
         .buttonStyle(.plain)
         .font(.subheadline)
         .foregroundStyle(.primary)
-    }
-}
-
-// MARK: - Domain satırı
-
-private struct DomainRow: View {
-    let domain: String
-    let onRemove: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        HStack {
-            Text(domain)
-                .font(.body)
-            Spacer()
-            Button(action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 6)
-        .background(hovering ? AnyShapeStyle(.quinary) : AnyShapeStyle(.clear),
-                    in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .onHover { hovering = $0 }
-    }
-}
-
-// MARK: - Alan adı ekleme satırı
-
-private struct AddDomainRow: View {
-    let addLabel: String
-    let placeholder: String
-    let onAdd: (String) -> Void
-    @State private var editing = false
-    @State private var text = ""
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        if editing {
-            HStack(spacing: 6) {
-                Image(systemName: "globe")
-                    .foregroundStyle(.secondary)
-                TextField(placeholder, text: $text)
-                    .textFieldStyle(.plain)
-                    .font(.body)
-                    .focused($focused)
-                    .onSubmit(commit)
-                Button(action: commit) {
-                    Image(systemName: "return")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            .padding(.vertical, 5)
-            .padding(.horizontal, 6)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .onAppear { focused = true }
-        } else {
-            Button {
-                editing = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(.green)
-                    Text(addLabel)
-                        .font(.body)
-                    Spacer()
-                }
-                .padding(.vertical, 5)
-                .padding(.horizontal, 6)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private func commit() {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        onAdd(trimmed)
-        text = ""
-        editing = false
     }
 }

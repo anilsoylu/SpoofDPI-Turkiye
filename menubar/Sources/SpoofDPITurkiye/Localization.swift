@@ -53,6 +53,7 @@ private let translations: [String: [Lang: String]] = [
     "row.domains.count":        [.tr: "alan adı",              .en: "domains"],
     "section.domains":          [.tr: "ALAN ADLARI",           .en: "DOMAINS"],
     "domains.empty":            [.tr: "Henüz alan adı yok",    .en: "No domains yet"],
+    "domains.hint":             [.tr: "Her satıra bir alan adı yazın.", .en: "One domain per line."],
     "domains.add":              [.tr: "Alan adı ekle",         .en: "Add domain"],
     "domains.add.placeholder":  [.tr: "ornek.com",             .en: "example.com"],
     "footer.test":              [.tr: "Bağlantı testi",        .en: "Connection test"],

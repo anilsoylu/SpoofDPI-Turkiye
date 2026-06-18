@@ -38,7 +38,7 @@ final class AppState: ObservableObject {
     @Published var running: Bool = false
     @Published var port: Int = 8080
     @Published var domains: [String] = []
-    @Published var version: String = ""
+    @Published var version: String = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0.0"
     @Published var cliInstalled: Bool = false
     @Published var busy: Bool = false
 
@@ -68,11 +68,9 @@ final class AppState: ObservableObject {
            let cfg = try? JSONDecoder().decode(ConfigJSON.self, from: data) {
             port = cfg.port
             domains = cfg.domains
-            version = cfg.spoofDPIVersion
         } else {
             port = 8080
             domains = []
-            version = ""
         }
 
         running = isServiceRunning()
