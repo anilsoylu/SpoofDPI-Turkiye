@@ -27,6 +27,11 @@ mkdir -p "$RESOURCES_DIR"
 echo "spoofdpi-tr CLI derleniyor ve bundle'a gömülüyor..."
 ( cd "$SCRIPT_DIR/.." && go build -ldflags "-X main.version=0.1.0" -o "$RESOURCES_DIR/spoofdpi-tr" ./cmd/spoofdpi-tr )
 
+# Uygulama ikonunu bundle'a ekle
+if [ -f "$SCRIPT_DIR/AppIcon.icns" ]; then
+  cp "$SCRIPT_DIR/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+fi
+
 # Info.plist yaz
 cat > "$CONTENTS/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -40,6 +45,8 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
     <string>com.anilsoylu.spoofdpi-tr.menubar</string>
     <key>CFBundleExecutable</key>
     <string>SpoofDPITurkiye</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>CFBundleShortVersionString</key>
