@@ -46,7 +46,7 @@ func main() {
 	case "update":
 		err = runUpdate(args)
 	case "uninstall":
-		err = runUninstall()
+		err = runUninstall(args)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -76,7 +76,7 @@ Komutlar:
   remove <dom>   Bypass listesinden domain çıkar
   list           Bypass edilen domainleri göster
   update         Resmî spoofdpi binary'sini güncelle
-  uninstall      Tüm yapılandırma ve servisi kaldır
+  uninstall      Tüm yapılandırma ve servisi kaldır [-y]
   version        Sürümü göster
 `)
 }
@@ -87,6 +87,17 @@ func runUpdate(args []string) error {
 		return err
 	}
 	fmt.Println("En son spoofdpi sürümü kontrol ediliyor...")
+
+	// Madde 9: Zaten güncel mi kontrol et.
+	latest, err := spoofdpi.LatestVersion()
+	if err != nil {
+		return err
+	}
+	if spoofdpi.IsInstalled() && latest == cfg.SpoofDPIVersion {
+		fmt.Printf("✓ Zaten güncel (v%s)\n", latest)
+		return nil
+	}
+
 	ver, err := spoofdpi.Install("") // latest
 	if err != nil {
 		return err
@@ -108,8 +119,14 @@ func runOn() error {
 	if err := macos.On(cfg); err != nil {
 		return err
 	}
-	fmt.Printf("✓ Açık — port %d, %d domain proxy'ye yönlendiriliyor (kalan trafik DIRECT)\n",
-		cfg.Port, len(cfg.Domains))
+	// Madde 10: 0 domain uyarısı.
+	if len(cfg.Domains) == 0 {
+		fmt.Printf("⚠ Hiç domain seçili değil — bypass hiçbir trafiği etkilemez. " +
+			"'spoofdpi-tr add <domain>' veya 'spoofdpi-tr install' ile ekleyin.\n")
+	} else {
+		fmt.Printf("✓ Açık — port %d, %d domain proxy'ye yönlendiriliyor (kalan trafik DIRECT)\n",
+			cfg.Port, len(cfg.Domains))
+	}
 	return nil
 }
 
@@ -135,12 +152,23 @@ func runStatus() error {
 	fmt.Printf("Binary : %v\n", st.BinaryInstalled)
 	fmt.Printf("Port   : %d\n", cfg.Port)
 	fmt.Printf("Domain : %d\n", len(cfg.Domains))
+	// Madde 9: SpoofDPIVersion göster.
+	ver := cfg.SpoofDPIVersion
+	if ver == "" {
+		ver = "kurulu değil"
+	}
+	fmt.Printf("Sürüm  : %s\n", ver)
 	return nil
 }
 
 func runInstall(args []string) error {
 	p := cli.New(os.Stdin, os.Stdout)
-	cfg := config.Default()
+
+	// Madde 1: Mevcut config'i koru; yoksa Default() döndürür.
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
 
 	fmt.Println("SpoofDPI Türkiye kurulumu")
 	fmt.Println()
@@ -156,12 +184,24 @@ func runInstall(args []string) error {
 		fmt.Printf("✓ spoofdpi %s kuruldu\n\n", ver)
 	}
 
-	// 2. Port sor (varsayılan 8080; geliştiriciler 9090 gibi seçebilir).
-	port, err := p.AskInt("Dinleme portu", cfg.Port)
-	if err != nil {
-		return err
+	// 2. Port sor (varsayılan mevcut config'ten gelir — yeniden kurulumda korunur).
+	// Madde 4: Geçersiz port girilirse tekrar sor.
+	for {
+		port, err := p.AskInt("Dinleme portu", cfg.Port)
+		if err != nil {
+			return err
+		}
+		if err := config.ValidatePort(port); err != nil {
+			fmt.Fprintf(os.Stderr, "Hata: %v\n", err)
+			continue
+		}
+		cfg.Port = port
+		break
 	}
-	cfg.Port = port
+	// Madde 4: <1024 ayrıcalıklı port uyarısı (engelleme değil).
+	if cfg.Port < 1024 {
+		fmt.Fprintf(os.Stderr, "Uyarı: %d ayrıcalıklı port (<1024); macOS'ta root yetkisi gerekebilir.\n", cfg.Port)
+	}
 
 	// 3. Kategori seç. Her kategori için evet/hayır.
 	fmt.Println("\nHangi servisler bypass edilsin?")
@@ -278,7 +318,36 @@ func runList() error {
 	return nil
 }
 
-func runUninstall() error {
+// hasFlag, args içinde -y veya --yes bayrağı var mı kontrol eder.
+func hasFlag(args []string, flags ...string) bool {
+	for _, a := range args {
+		for _, f := range flags {
+			if a == f {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func runUninstall(args []string) error {
+	// Madde 11: TTY kontrolü ve onay sorusu.
+	fi, _ := os.Stdin.Stat()
+	isTTY := (fi.Mode() & os.ModeCharDevice) != 0
+	forceYes := hasFlag(args, "-y", "--yes")
+
+	if isTTY && !forceYes {
+		p := cli.New(os.Stdin, os.Stdout)
+		ok, err := p.AskYesNo("Tüm yapılandırma ve servis silinsin mi?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			fmt.Println("İptal edildi.")
+			return nil
+		}
+	}
+
 	// 1. Servisi durdur ve proxy'yi geri al (kullanıcı internetsiz kalmasın).
 	if err := macos.Off(); err != nil {
 		fmt.Fprintf(os.Stderr, "uyarı: servis durdurulurken hata: %v\n", err)
@@ -291,6 +360,12 @@ func runUninstall() error {
 	if err := os.RemoveAll(dir); err != nil {
 		return err
 	}
-	fmt.Println("✓ Kaldırıldı — servis durduruldu, proxy DIRECT'e döndü, yapılandırma silindi")
+	// 3. CLI binary'sinin kendisini sil (best-effort).
+	if exe, err := os.Executable(); err == nil {
+		if err := os.Remove(exe); err != nil {
+			fmt.Fprintf(os.Stderr, "uyarı: binary silinemedi (%s): %v\n", exe, err)
+		}
+	}
+	fmt.Println("✓ Tamamen kaldırıldı — servis durduruldu, proxy DIRECT'e döndü, yapılandırma ve uygulama silindi.")
 	return nil
 }

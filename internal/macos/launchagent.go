@@ -48,6 +48,8 @@ func xmlEscape(s string) string {
 }
 
 // writeAndLoad, plist'i yazar ve launchctl ile yükler. Zaten yüklüyse önce çıkarır.
+// Sıralama: MkdirAll → WriteFile (önce) → unload (eski'yi durdur, hata yoksay) → load.
+// Bu sayede WriteFile başarısız olursa eski servise dokunulmaz.
 func writeAndLoad(binPath string, args []string) error {
 	p, err := plistPath()
 	if err != nil {
@@ -56,11 +58,12 @@ func writeAndLoad(binPath string, args []string) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	// Zaten yüklüyse temiz başlamak için çıkar (hata yok say).
-	_ = exec.Command("launchctl", "unload", "-w", p).Run()
+	// Önce yeni plist'i yaz; başarısız olursa eski servis çalışmaya devam eder.
 	if err := os.WriteFile(p, []byte(buildPlist(binPath, args)), 0o644); err != nil {
 		return err
 	}
+	// Yazma başarılı olduktan sonra eski servisi durdur (hata yok say).
+	_ = exec.Command("launchctl", "unload", "-w", p).Run()
 	out, err := exec.Command("launchctl", "load", "-w", p).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("launchctl load başarısız: %v: %s", err, out)

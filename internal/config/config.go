@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -67,6 +68,14 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	return &c, nil
+}
+
+// ValidatePort, portun geçerli aralıkta olduğunu denetler.
+func ValidatePort(p int) error {
+	if p < 1 || p > 65535 {
+		return fmt.Errorf("port 1-65535 aralığında olmalı, verilen: %d", p)
+	}
+	return nil
 }
 
 // Save, yapılandırmayı diske yazar; dizini gerekirse oluşturur (0700).

@@ -136,9 +136,13 @@ func Install(tag string) (installedVersion string, err error) {
 	}
 
 	// Tüm tarball'ı belleğe al (birkaç MB) ve checksum doğrula.
-	data, err := io.ReadAll(resp.Body)
+	const maxDownload = 64 << 20 // 64 MB
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxDownload+1))
 	if err != nil {
 		return "", err
+	}
+	if len(data) > maxDownload {
+		return "", fmt.Errorf("indirme çok büyük (>64MB), iptal edildi")
 	}
 	if err := verifyChecksum(data, expected); err != nil {
 		return "", err
@@ -162,6 +166,8 @@ func Install(tag string) (installedVersion string, err error) {
 	if err := os.WriteFile(tmp, bin, 0o755); err != nil {
 		return "", err
 	}
+	// Rename başarılı olursa Remove no-op olur; başarısız olursa .tmp dosyasını temizler.
+	defer os.Remove(tmp)
 	if err := os.Rename(tmp, dest); err != nil {
 		return "", err
 	}

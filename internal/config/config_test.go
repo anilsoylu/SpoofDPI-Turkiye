@@ -51,3 +51,18 @@ func TestLoadMissingReturnsDefault(t *testing.T) {
 	}
 	_ = os.Getenv // (lint susturucu; gerçek kullanım yukarıda)
 }
+
+func TestValidatePort(t *testing.T) {
+	// Geçersiz portlar hata döndürmeli.
+	for _, p := range []int{0, -1, 65536, -1000} {
+		if err := ValidatePort(p); err == nil {
+			t.Errorf("ValidatePort(%d) hata vermeli, vermedi", p)
+		}
+	}
+	// Geçerli portlar nil döndürmeli.
+	for _, p := range []int{1, 80, 443, 8080, 65535} {
+		if err := ValidatePort(p); err != nil {
+			t.Errorf("ValidatePort(%d) hata vermemeli, verdi: %v", p, err)
+		}
+	}
+}

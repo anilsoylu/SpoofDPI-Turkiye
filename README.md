@@ -48,6 +48,20 @@ spoofdpi-tr update          # spoofdpi motorunu güncelle
 spoofdpi-tr uninstall       # tamamen kaldır
 ```
 
+#### Kaldırma (macOS)
+
+Tek satır (binary kurulu olmasa da çalışır):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/anilsoylu/SpoofDPI-Turkiye/master/uninstall.sh | bash
+```
+
+Binary kuruluysa alternatif:
+
+```bash
+spoofdpi-tr uninstall
+```
+
 #### Nasıl çalışır?
 
 1. `spoofdpi-tr on` çalıştırıldığında araç bir PAC (Proxy Auto-Config) dosyası oluşturur.
@@ -108,6 +122,20 @@ spoofdpi-tr remove twitch.tv # remove a domain
 spoofdpi-tr list            # list bypassed domains
 spoofdpi-tr update          # update the spoofdpi engine
 spoofdpi-tr uninstall       # remove everything
+```
+
+#### Uninstallation (macOS)
+
+One-liner (works even if the binary is not in PATH):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/anilsoylu/SpoofDPI-Turkiye/master/uninstall.sh | bash
+```
+
+If the binary is already installed, you can also run:
+
+```bash
+spoofdpi-tr uninstall
 ```
 
 #### How it works

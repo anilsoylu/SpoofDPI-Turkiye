@@ -2,6 +2,7 @@ package macos
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,6 +19,14 @@ func pacPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, "proxy.pac"), nil
+}
+
+// fileURL, bir dosya yolunu RFC 3986 uyumlu file:// URL'ine çevirir.
+// Boşluk ve özel karakter içeren yollar doğru şekilde encode edilir.
+// Saf fonksiyon — test edilebilir.
+func fileURL(p string) string {
+	u := url.URL{Scheme: "file", Path: p}
+	return u.String()
 }
 
 // spoofdpiArgs, config'ten spoofdpi komut argümanlarını kurar.
@@ -37,9 +46,14 @@ func spoofdpiArgs(c *config.Config) []string {
 }
 
 // On, PAC'i yazar, LaunchAgent'ı yükler ve sistem proxy'sini PAC'e yönlendirir.
+// enablePAC başarısız olursa Off() ile rollback yapılır.
 func On(c *config.Config) error {
 	if !spoofdpi.IsInstalled() {
 		return fmt.Errorf("spoofdpi binary kurulu değil; önce 'spoofdpi-tr update' çalıştırın")
+	}
+	// Madde 4: Port doğrulaması.
+	if err := config.ValidatePort(c.Port); err != nil {
+		return err
 	}
 	// 1. PAC yaz.
 	pp, err := pacPath()
@@ -60,13 +74,21 @@ func On(c *config.Config) error {
 	if err := writeAndLoad(bin, spoofdpiArgs(c)); err != nil {
 		return err
 	}
-	// 3. Sistem proxy'yi PAC'e yönlendir.
-	return enablePAC("file://" + pp)
+	// 3. Sistem proxy'yi PAC'e yönlendir; başarısız olursa rollback.
+	if err := enablePAC(fileURL(pp)); err != nil {
+		_ = Off() // rollback: proxy'yi geri al, servisi durdur
+		return err
+	}
+	return nil
 }
 
 // Off, sistem proxy'yi kapatır ve LaunchAgent'ı çıkarır.
 func Off() error {
-	if err := disablePAC(); err != nil {
+	pp, err := pacPath()
+	if err != nil {
+		return err
+	}
+	if err := disablePAC(pp); err != nil {
 		return err
 	}
 	return unload()

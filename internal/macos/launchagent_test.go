@@ -7,6 +7,47 @@ import (
 	"github.com/anilsoylu/SpoofDPI-Turkiye/internal/config"
 )
 
+// proxy.go — autoProxyURLMatches testleri.
+func TestAutoProxyURLMatches(t *testing.T) {
+	pac := "/Users/x/.spoofdpi-tr/proxy.pac"
+	matching := "URL: file:///Users/x/.spoofdpi-tr/proxy.pac\nEnabled: Yes\n"
+	other := "URL: file:///Users/x/other.pac\nEnabled: Yes\n"
+	empty := ""
+
+	if !autoProxyURLMatches(matching, pac) {
+		t.Error("eşleşen çıktı true döndürmeli")
+	}
+	if autoProxyURLMatches(other, pac) {
+		t.Error("farklı URL false döndürmeli")
+	}
+	if autoProxyURLMatches(empty, pac) {
+		t.Error("boş çıktı false döndürmeli")
+	}
+	// URL satırı yoksa false.
+	noURL := "Enabled: Yes\n"
+	if autoProxyURLMatches(noURL, pac) {
+		t.Error("URL satırı olmayan çıktı false döndürmeli")
+	}
+}
+
+// service.go — fileURL testleri.
+func TestFileURL(t *testing.T) {
+	cases := []struct {
+		path string
+		want string
+	}{
+		{"/Users/anil/.spoofdpi-tr/proxy.pac", "file:///Users/anil/.spoofdpi-tr/proxy.pac"},
+		{"/Users/John Doe/x.pac", "file:///Users/John%20Doe/x.pac"},
+		{"/simple/path", "file:///simple/path"},
+	}
+	for _, tc := range cases {
+		got := fileURL(tc.path)
+		if got != tc.want {
+			t.Errorf("fileURL(%q) = %q, beklenen %q", tc.path, got, tc.want)
+		}
+	}
+}
+
 func TestBuildPlistContainsArgs(t *testing.T) {
 	out := buildPlist("/bin/spoofdpi", []string{"-port", "9090", "-silent"})
 	for _, want := range []string{

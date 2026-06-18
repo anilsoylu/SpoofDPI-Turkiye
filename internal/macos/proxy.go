@@ -26,6 +26,18 @@ func activeServices() ([]string, error) {
 	return services, nil
 }
 
+// autoProxyURLMatches, networksetup -getautoproxyurl çıktısının pacPath'i
+// içerip içermediğini denetler. Saf fonksiyon — test edilebilir.
+func autoProxyURLMatches(getautoproxyOutput, pacPath string) bool {
+	for _, line := range strings.Split(getautoproxyOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "URL:") {
+			return strings.Contains(line, pacPath)
+		}
+	}
+	return false
+}
+
 // enablePAC, tüm etkin servislerde PAC URL'ini ayarlar ve açar.
 func enablePAC(pacURL string) error {
 	services, err := activeServices()
@@ -43,15 +55,24 @@ func enablePAC(pacURL string) error {
 	return nil
 }
 
-// disablePAC, tüm etkin servislerde PAC proxy'yi kapatır.
-func disablePAC() error {
+// disablePAC, yalnızca BİZİM PAC'imizi kullanan servislerde PAC proxy'yi kapatır.
+// Diğer servislerin mevcut PAC yapılandırmasına dokunulmaz.
+func disablePAC(pacPath string) error {
 	services, err := activeServices()
 	if err != nil {
 		return err
 	}
 	for _, s := range services {
-		// Hataları topla ama devam et; mümkün olduğunca çok servisi temizle.
-		_ = exec.Command("networksetup", "-setautoproxystate", s, "off").Run()
+		// Önce bu servisin hangi PAC URL'ini kullandığını sorgula.
+		out, err := exec.Command("networksetup", "-getautoproxyurl", s).Output()
+		if err != nil {
+			// Sorgu başarısız olursa bu servise dokunma.
+			continue
+		}
+		// Yalnızca bizim PAC dosyamıza işaret ediyorsa kapat.
+		if autoProxyURLMatches(string(out), pacPath) {
+			_ = exec.Command("networksetup", "-setautoproxystate", s, "off").Run()
+		}
 	}
 	return nil
 }
