@@ -49,6 +49,8 @@ func main() {
 		err = runUninstall(args)
 	case "port":
 		err = runPort(args)
+	case "set":
+		err = runSet(args)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -79,6 +81,7 @@ Komutlar:
   list           Bypass edilen domainleri göster
   update         Resmî spoofdpi binary'sini güncelle
   uninstall      Tüm yapılandırma ve servisi kaldır [-y]
+  set <domain...> Bypass listesini verilen domainlerle tamamen değiştir
   port <numara>  Proxy portunu değiştir (1-65535)
   version        Sürümü göster
 `)
@@ -318,6 +321,26 @@ func runList() error {
 	for _, d := range cfg.Domains {
 		fmt.Println(d)
 	}
+	return nil
+}
+
+func runSet(args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	// args boşsa boş liste — mevcut tüm domainleri temizler.
+	cfg.Domains = pac.Normalize(args)
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+	// Servis çalışıyorsa PAC'i tazele; restart gerekmez.
+	if macos.CurrentStatus().ServiceLoaded {
+		if err := macos.RefreshPAC(cfg); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("✓ %d domain ayarlandı.\n", len(cfg.Domains))
 	return nil
 }
 

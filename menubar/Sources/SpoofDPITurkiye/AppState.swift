@@ -23,6 +23,14 @@ private struct ConfigJSON: Codable {
     }
 }
 
+// MARK: - Bağlantı testi sonucu
+
+struct TestResult {
+    var status: String   // "HTTP 200", "—", "..."
+    var reachable: Bool
+    var testing: Bool
+}
+
 // MARK: - AppState
 
 @MainActor
@@ -34,6 +42,15 @@ final class AppState: ObservableObject {
     @Published var cliInstalled: Bool = false
     @Published var busy: Bool = false
 
+    @Published var lang: Lang = .tr
+    @Published var lastMessage: String = ""
+    @Published var testResults: [String: TestResult] = [:]
+
+    // Çeviri kısayolu
+    func t(_ key: String) -> String {
+        Localization.t(key, lang: lang)
+    }
+
     init() {
         refresh()
     }
@@ -41,7 +58,6 @@ final class AppState: ObservableObject {
     func refresh() {
         cliInstalled = CLI.findBinary() != nil
 
-        // config.json oku
         let configPath = (NSHomeDirectory() as NSString)
             .appendingPathComponent(".spoofdpi-tr/config.json")
         if let data = try? Data(contentsOf: URL(fileURLWithPath: configPath)),
@@ -55,8 +71,26 @@ final class AppState: ObservableObject {
             version = ""
         }
 
-        // Servis durumu: launchctl list içinde com.spoofdpi-tr ara
         running = isServiceRunning()
+    }
+
+    // MARK: - Servis durumu
+
+    private func isServiceRunning() -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["list"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+
+        do { try process.run() } catch { return false }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        let output = String(data: data, encoding: .utf8) ?? ""
+        return output.contains("com.spoofdpi-tr")
     }
 
     // MARK: - Aksiyonlar
@@ -65,14 +99,58 @@ final class AppState: ObservableObject {
         busy = true
         Task {
             if running {
-                CLI.off()
+                let r = CLI.off()
+                lastMessage = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
             } else {
-                CLI.on()
+                let r = CLI.on()
+                lastMessage = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             refresh()
             busy = false
         }
     }
+
+    func restart() {
+        busy = true
+        Task {
+            CLI.off()
+            let r = CLI.on()
+            lastMessage = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            refresh()
+            busy = false
+        }
+    }
+
+    func applyDomains(_ text: String) {
+        busy = true
+        Task {
+            let lines = text
+                .components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            let r = CLI.set(lines)
+            lastMessage = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            if lastMessage.isEmpty {
+                lastMessage = lang == .tr
+                    ? "Domainler kaydedildi ve uygulandı."
+                    : "Domains saved and applied."
+            }
+            refresh()
+            busy = false
+        }
+    }
+
+    func uninstall() {
+        busy = true
+        Task {
+            CLI.uninstall()
+            lastMessage = lang == .tr ? "Kaldırıldı." : "Uninstalled."
+            refresh()
+            busy = false
+        }
+    }
+
+    // MARK: - Eski yardımcılar (geriye uyumluluk)
 
     func addDomain(_ domain: String) {
         let trimmed = domain.trimmingCharacters(in: .whitespaces)
@@ -112,26 +190,42 @@ final class AppState: ObservableObject {
         }
     }
 
-    // MARK: - Yardımcı
+    // MARK: - Bağlantı testi
 
-    private func isServiceRunning() -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["list"]
+    func runConnectionTests() {
+        let targets: [(String, String)] = [
+            ("Discord",            "https://discord.com"),
+            ("OpenAI / Codex",     "https://api.openai.com"),
+            ("Anthropic / Claude", "https://api.anthropic.com"),
+            ("GitHub",             "https://github.com"),
+        ]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe() // sessizce yut
-
-        do {
-            try process.run()
-        } catch {
-            return false
+        for (name, _) in targets {
+            testResults[name] = TestResult(status: "...", reachable: false, testing: true)
         }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
 
-        let output = String(data: data, encoding: .utf8) ?? ""
-        return output.contains("com.spoofdpi-tr")
+        Task {
+            await withTaskGroup(of: (String, TestResult).self) { group in
+                for (name, urlStr) in targets {
+                    group.addTask {
+                        guard let url = URL(string: urlStr) else {
+                            return (name, TestResult(status: "—", reachable: false, testing: false))
+                        }
+                        var request = URLRequest(url: url, timeoutInterval: 6)
+                        request.httpMethod = "HEAD"
+                        do {
+                            let (_, response) = try await URLSession.shared.data(for: request)
+                            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+                            return (name, TestResult(status: "HTTP \(code)", reachable: true, testing: false))
+                        } catch {
+                            return (name, TestResult(status: "—", reachable: false, testing: false))
+                        }
+                    }
+                }
+                for await (name, result) in group {
+                    testResults[name] = result
+                }
+            }
+        }
     }
 }

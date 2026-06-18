@@ -75,4 +75,12 @@ enum CLI {
 
     @discardableResult
     static func setPort(_ p: Int) -> (out: String, ok: Bool) { run(["port", "\(p)"]) }
+
+    /// Domain listesini tamamen verilen liste ile değiştirir.
+    @discardableResult
+    static func set(_ domains: [String]) -> (out: String, ok: Bool) { run(["set"] + domains) }
+
+    /// Tüm yapılandırmayı kaldırır (-y ile onay sorulmadan).
+    @discardableResult
+    static func uninstall() -> (out: String, ok: Bool) { run(["uninstall", "-y"]) }
 }
