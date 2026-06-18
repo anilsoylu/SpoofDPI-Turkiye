@@ -21,6 +21,12 @@ mkdir -p "$MACOS_DIR"
 # Binary'yi kopyala
 cp "$BINARY_PATH" "$MACOS_DIR/SpoofDPITurkiye"
 
+# spoofdpi-tr CLI'ını derle ve bundle'a göm → app ayrı kuruluma gerek duymaz
+RESOURCES_DIR="$CONTENTS/Resources"
+mkdir -p "$RESOURCES_DIR"
+echo "spoofdpi-tr CLI derleniyor ve bundle'a gömülüyor..."
+( cd "$SCRIPT_DIR/.." && go build -ldflags "-X main.version=0.1.0" -o "$RESOURCES_DIR/spoofdpi-tr" ./cmd/spoofdpi-tr )
+
 # Info.plist yaz
 cat > "$CONTENTS/Info.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -49,6 +55,8 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
         <key>NSAllowsArbitraryLoads</key>
         <true/>
     </dict>
+    <key>LSUIElement</key>
+    <true/>
 </dict>
 </plist>
 PLIST

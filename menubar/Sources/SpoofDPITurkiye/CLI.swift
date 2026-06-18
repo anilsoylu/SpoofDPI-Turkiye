@@ -5,6 +5,11 @@ enum CLI {
 
     /// Bilinen konumlarda spoofdpi-tr binary'sini arar; bulursa tam yolunu döndürür.
     static func findBinary() -> String? {
+        // 0. Uygulama paketine gömülü CLI (kendi kendine yeten kurulum) — önce buna bak.
+        if let res = Bundle.main.resourceURL?.appendingPathComponent("spoofdpi-tr"),
+           FileManager.default.isExecutableFile(atPath: res.path) {
+            return res.path
+        }
         // 1. PATH env değişkeninden ara.
         if let pathEnv = ProcessInfo.processInfo.environment["PATH"] {
             for dir in pathEnv.split(separator: ":") {

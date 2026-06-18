@@ -4,24 +4,33 @@ import SwiftUI
 
 struct ShieldHero: View {
     let running: Bool
+    var size: CGFloat = 240
+    var animated: Bool = true
 
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseOpacity: Double = 0.6
 
-    private var shieldColor: Color { running ? .dsTeal : Color.dsSecondaryText }
-    private var glowColor: Color   { running ? .dsTeal.opacity(0.4) : .clear }
+    private var glowColor: Color { running ? .dsTeal.opacity(0.4) : .clear }
+
+    // Orantılı boyutlar (tüm sabitler size'a göre ölçeklendi)
+    private var iconSize:   CGFloat { size * 0.40 }   // 240 → 96
+    private var halo0:      CGFloat { size * 0.583 }  // 240 → 140
+    private var haloStep:   CGFloat { size * 0.183 }  // 240 → 44
+    private var gradRadius: CGFloat { size * 0.50 }   // 240 → 120
+    private var gradStart:  CGFloat { size * 0.125 }  // 240 → 30
 
     var body: some View {
         ZStack {
             // Radyal halo katmanları
             if running {
                 ForEach(0..<3, id: \.self) { i in
+                    let d = halo0 + CGFloat(i) * haloStep
                     Circle()
                         .stroke(
                             Color.dsTeal.opacity(0.08 - Double(i) * 0.025),
                             lineWidth: 1.5
                         )
-                        .frame(width: CGFloat(140 + i * 44), height: CGFloat(140 + i * 44))
+                        .frame(width: d, height: d)
                         .scaleEffect(pulseScale)
                         .opacity(pulseOpacity)
                 }
@@ -29,16 +38,16 @@ struct ShieldHero: View {
                 RadialGradient(
                     colors: [Color.dsTeal.opacity(0.18), .clear],
                     center: .center,
-                    startRadius: 30,
-                    endRadius: 120
+                    startRadius: gradStart,
+                    endRadius: gradRadius
                 )
-                .frame(width: 240, height: 240)
+                .frame(width: size, height: size)
                 .blendMode(.screen)
             }
 
             // Kalkan ikonu
             Image(systemName: running ? "shield.fill" : "shield")
-                .font(.system(size: 96, weight: .bold))
+                .font(.system(size: iconSize, weight: .bold))
                 .foregroundStyle(
                     running
                         ? LinearGradient(
@@ -53,16 +62,18 @@ struct ShieldHero: View {
                 .shadow(color: running ? glowColor : .clear, radius: 20, x: 0, y: 0)
                 .scaleEffect(running ? pulseScale : 1.0)
         }
-        .frame(width: 240, height: 240)
+        .frame(width: size, height: size)
         .onAppear { startPulse() }
         .onChange(of: running) { startPulse() }
     }
 
     private func startPulse() {
-        guard running else {
+        // Sık açılan menü panelinde sürekli hareket istemiyoruz:
+        // animated=false ise glow statik kalır, pulse döngüsü yok.
+        guard running && animated else {
             withAnimation(.easeOut(duration: 0.3)) {
                 pulseScale = 1.0
-                pulseOpacity = 0.6
+                pulseOpacity = running ? 0.5 : 0.6
             }
             return
         }

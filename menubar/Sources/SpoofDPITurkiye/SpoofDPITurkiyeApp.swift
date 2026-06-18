@@ -1,50 +1,39 @@
 import SwiftUI
 import AppKit
 
+// MARK: - AppDelegate (dock ikonu kapatır)
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Dock ikonu ve uygulama menüsünü gizle; sadece menü çubuğu simgesi
+        NSApp.setActivationPolicy(.accessory)
+    }
+}
+
+// MARK: - Uygulama
+
 @main
 struct SpoofDPITurkiyeApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var state = AppState()
 
     var body: some Scene {
-        // Ana pencere
+        // ANA arayüz: menü çubuğu popover paneli
+        MenuBarExtra {
+            MenuBarPanel()
+                .environmentObject(state)
+        } label: {
+            // Duruma göre ikon: açık=dolu kalkan, kapalı=içi boş kalkan
+            Image(systemName: state.running ? "shield.lefthalf.filled" : "shield")
+        }
+        .menuBarExtraStyle(.window)
+
+        // OPSİYONEL: tam pencere (otomatik açılmaz; popover'dan "Detaylar" ile açılır)
         Window("SpoofDPI Türkiye", id: "main") {
             MainView()
                 .environmentObject(state)
         }
-        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1040, height: 720)
         .windowResizability(.contentSize)
-
-        // Menu bar ikonu
-        MenuBarExtra("SpoofDPI Türkiye", systemImage: "shield.lefthalf.filled") {
-            MenuBarMenuView()
-                .environmentObject(state)
-        }
-    }
-}
-
-// MARK: - Menu Bar küçük menüsü
-
-struct MenuBarMenuView: View {
-    @EnvironmentObject private var state: AppState
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Button(state.running ? state.t("btn.stop") : state.t("btn.start")) {
-            state.toggle()
-        }
-
-        Divider()
-
-        Button(state.t("menu.open")) {
-            openWindow(id: "main")
-            NSApplication.shared.activate(ignoringOtherApps: true)
-        }
-
-        Divider()
-
-        Button(state.t("menu.quit")) {
-            NSApplication.shared.terminate(nil)
-        }
     }
 }

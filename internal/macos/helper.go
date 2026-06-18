@@ -1,0 +1,140 @@
+package macos
+
+import (
+	"fmt"
+	"strings"
+)
+
+// HelperScript, root yetkisiyle çalışan bash helper script metnini üretir.
+// /usr/local/libexec/spoofdpi-tr-helper olarak yazılır (root:wheel 0755).
+//
+// Sudoers kuralı sayesinde bu script parolasız `sudo` ile çağrılabilir; tüm
+// ayrıcalıklı işlemler (pfctl, launchctl, anchor dosyası yazımı) burada yapılır.
+//
+// Komutlar:
+//
+//	start <tpwsPort>               : anchor dosyasını yaz, pf'yi yükle+aktif et,
+//	                                 anchor kurallarını yükle, tpws daemon'u
+//	                                 (yeniden) başlat. Domainler tpws tarafından
+//	                                 dosyadan (--hostlist) okunur; daemon taze
+//	                                 başladığında güncel hostlist'i yeniden okur.
+//	stop                           : tpws daemon'u durdur, anchor kurallarını boşalt.
+//	status                         : tpws çalışıyor mu + anchor dolu mu.
+func HelperScript() string {
+	// %[n]$s ile alan adlarını sabitlere bağlıyoruz; bash içindeki $1/$2 gibi
+	// değişkenler Go format dizisinde %% kaçışıyla korunur.
+	return fmt.Sprintf(`#!/bin/bash
+# spoofdpi-tr root helper — sudoers ile parolasız çağrılır.
+# Tüm ayrıcalıklı PF/launchctl işlemleri burada yapılır.
+set -euo pipefail
+
+ANCHOR_NAME=%[1]q
+ANCHOR_PATH=%[2]q
+PF_CONF=%[3]q
+PLIST=%[4]q
+DAEMON_ID=%[5]q
+
+write_anchor() {
+  local port="$1"
+  cat > "$ANCHOR_PATH" <<EOF
+rdr on lo0 inet proto tcp from { !127.0.0.0/8 !192.168.0.0/16 !10.0.0.0/8 !172.16.0.0/12 } to any port { 443 } -> 127.0.0.1 port ${port}
+pass out route-to (lo0 127.0.0.1) inet proto tcp from { !127.0.0.0/8 !192.168.0.0/16 !10.0.0.0/8 !172.16.0.0/12 } to any port { 443 } user { >root }
+EOF
+  chmod 644 "$ANCHOR_PATH"
+}
+
+daemon_start() {
+  # KeepAlive watchdog'lu LaunchDaemon'u yükle.
+  if launchctl print "system/${DAEMON_ID}" >/dev/null 2>&1; then
+    launchctl bootout "system/${DAEMON_ID}" >/dev/null 2>&1 || true
+  fi
+  launchctl bootstrap system "$PLIST"
+}
+
+daemon_stop() {
+  launchctl bootout "system/${DAEMON_ID}" >/dev/null 2>&1 || \
+    launchctl unload -w "$PLIST" >/dev/null 2>&1 || true
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  start)
+    port="${2:-}"
+    # Domainler tpws tarafından --hostlist dosyasından okunur; helper yalnızca
+    # PF + daemon yaşam döngüsünü yönetir. daemon_start her zaman bootout+
+    # bootstrap yaptığından tpws taze başlar ve güncel hostlist'i yeniden okur.
+    if [ -z "$port" ]; then echo "kullanim: start <port>" >&2; exit 2; fi
+    write_anchor "$port"
+    pfctl -f "$PF_CONF"
+    pfctl -e 2>/dev/null || true
+    pfctl -a "$ANCHOR_NAME" -f "$ANCHOR_PATH"
+    daemon_start
+    echo "spoofdpi-tr basladi (port ${port})"
+    ;;
+  stop)
+    daemon_stop
+    pfctl -a "$ANCHOR_NAME" -F all 2>/dev/null || true
+    echo "spoofdpi-tr durdu"
+    ;;
+  status)
+    if launchctl print "system/${DAEMON_ID}" >/dev/null 2>&1; then
+      echo "tpws: calisiyor"
+    else
+      echo "tpws: durdu"
+    fi
+    if pfctl -a "$ANCHOR_NAME" -s nat 2>/dev/null | grep -q rdr; then
+      echo "pf-anchor: dolu"
+    else
+      echo "pf-anchor: bos"
+    fi
+    ;;
+  *)
+    echo "kullanim: spoofdpi-tr-helper start|stop|status" >&2
+    exit 2
+    ;;
+esac
+`, AnchorName, AnchorPath, PFConfPath, LaunchDaemonPath, LaunchDaemonID)
+}
+
+// LaunchDaemonPlist, tpws'i root olarak çalıştıran LaunchDaemon plist'ini üretir.
+// RunAtLoad=true ve KeepAlive=true (watchdog: tpws çökerse otomatik yeniden
+// başlatılır). StandardOut/ErrPath /tmp altına yazar.
+func LaunchDaemonPlist(tpwsBin string, args []string) string {
+	var sb strings.Builder
+	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+	sb.WriteString(`<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">` + "\n")
+	sb.WriteString(`<plist version="1.0">` + "\n")
+	sb.WriteString("<dict>\n")
+	sb.WriteString("\t<key>Label</key>\n")
+	fmt.Fprintf(&sb, "\t<string>%s</string>\n", xmlEscape(LaunchDaemonID))
+	sb.WriteString("\t<key>ProgramArguments</key>\n")
+	sb.WriteString("\t<array>\n")
+	fmt.Fprintf(&sb, "\t\t<string>%s</string>\n", xmlEscape(tpwsBin))
+	for _, a := range args {
+		fmt.Fprintf(&sb, "\t\t<string>%s</string>\n", xmlEscape(a))
+	}
+	sb.WriteString("\t</array>\n")
+	sb.WriteString("\t<key>RunAtLoad</key>\n\t<true/>\n")
+	sb.WriteString("\t<key>KeepAlive</key>\n\t<true/>\n")
+	sb.WriteString("\t<key>StandardOutPath</key>\n\t<string>/tmp/spoofdpi-tr.out.log</string>\n")
+	sb.WriteString("\t<key>StandardErrorPath</key>\n\t<string>/tmp/spoofdpi-tr.err.log</string>\n")
+	sb.WriteString("</dict>\n")
+	sb.WriteString("</plist>\n")
+	return sb.String()
+}
+
+// SudoersRule, helper'ın parolasız çağrılmasını sağlayan sudoers satırını üretir.
+// /etc/sudoers.d/spoofdpi-tr olarak yazılır (chmod 440, visudo -cf ile doğrula).
+func SudoersRule(user string) string {
+	return fmt.Sprintf("%s ALL=(root) NOPASSWD: %s *\n", user, HelperPath)
+}
+
+// xmlEscape, plist string'leri için minimal XML kaçışı yapar.
+func xmlEscape(s string) string {
+	r := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+	)
+	return r.Replace(s)
+}

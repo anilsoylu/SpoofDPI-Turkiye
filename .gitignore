@@ -11,3 +11,8 @@ plans/
 menubar/.build/
 *.app
 menubar/SpoofDPI-Türkiye.app/
+
+# Zapret 3. parti referans scriptleri — repoya gitmesin (telif/lisans)
+reference/
+# Derlenmiş 3. parti motor binary
+*.tpws

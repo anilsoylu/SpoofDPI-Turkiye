@@ -30,8 +30,8 @@ private let translations: [String: [Lang: String]] = [
     "info.processing":          [.tr: "İşleniyor...",          .en: "Processing..."],
     // Kart başlıkları
     "card.domains.title":       [.tr: "HEDEF ALAN ADLARI",    .en: "TARGET DOMAINS"],
-    "card.domains.hint":        [.tr: "Her satıra bir kök alan adı yazın. Alt alan adları otomatik kapsanır.",
-                                 .en: "Enter one root domain per line. Subdomains are automatically included."],
+    "card.domains.hint":        [.tr: "Her satıra bir kök alan adı yazın. Alt alan adları (cdn., media., gateway. vb.) otomatik kapsanır.",
+                                 .en: "Enter one root domain per line. Subdomains (cdn., media., gateway., …) are covered automatically."],
     "card.test.title":          [.tr: "BAĞLANTI TESTİ",       .en: "CONNECTION TEST"],
     // Menu bar
     "menu.open":                [.tr: "Pencereyi Aç",          .en: "Open Window"],

@@ -7,11 +7,8 @@ import (
 
 func TestDefault(t *testing.T) {
 	c := Default()
-	if c.Port != 8080 {
-		t.Errorf("varsayılan port 8080 olmalı, bulundu %d", c.Port)
-	}
-	if !c.EnableDoH {
-		t.Error("varsayılan DoH açık olmalı")
+	if c.Port != 988 {
+		t.Errorf("varsayılan port 988 olmalı, bulundu %d", c.Port)
 	}
 }
 
@@ -21,7 +18,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	t.Setenv("HOME", tmp)
 
 	want := Default()
-	want.Port = 9090
+	want.Port = 988
 	want.Domains = []string{"discord.com", "discord.gg"}
 	if err := want.Save(); err != nil {
 		t.Fatalf("Save hatası: %v", err)
@@ -31,8 +28,8 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load hatası: %v", err)
 	}
-	if got.Port != 9090 {
-		t.Errorf("port 9090 bekleniyordu, bulundu %d", got.Port)
+	if got.Port != 988 {
+		t.Errorf("port 988 bekleniyordu, bulundu %d", got.Port)
 	}
 	if len(got.Domains) != 2 {
 		t.Errorf("2 domain bekleniyordu, bulundu %d", len(got.Domains))
@@ -46,10 +43,32 @@ func TestLoadMissingReturnsDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eksik config hata vermemeli: %v", err)
 	}
-	if c.Port != 8080 {
+	if c.Port != 988 {
 		t.Errorf("eksik config Default() döndürmeli, port %d", c.Port)
 	}
 	_ = os.Getenv // (lint susturucu; gerçek kullanım yukarıda)
+}
+
+func TestNormalizeDomains(t *testing.T) {
+	in := []string{
+		"  Discord.com ",
+		"*.discord.gg",
+		".discordapp.com",
+		"discord.com", // tekrar
+		"",
+		"  ",
+		"DISCORD.GG", // *.discord.gg ile aynı normalize sonucu
+	}
+	got := NormalizeDomains(in)
+	want := []string{"discord.com", "discord.gg", "discordapp.com"}
+	if len(got) != len(want) {
+		t.Fatalf("normalize: %d öğe bekleniyordu, %d bulundu: %v", len(want), len(got), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("normalize[%d]=%q, beklenen %q (tümü: %v)", i, got[i], want[i], got)
+		}
+	}
 }
 
 func TestValidatePort(t *testing.T) {

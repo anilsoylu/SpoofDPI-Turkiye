@@ -19,6 +19,8 @@ func Categories() []Category {
 		{
 			Key:   "discord",
 			Title: "Discord",
+			// Düz domain yazmak yeterli: PAC her domaini + tüm alt alanlarını
+			// (cdn.discordapp.com, gateway.discord.gg vb.) otomatik kapsar.
 			Domains: []string{
 				"discord.com",
 				"discordapp.com",

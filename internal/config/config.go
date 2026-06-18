@@ -5,31 +5,54 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // Config, spoofdpi-tr'nin kalıcı kullanıcı yapılandırmasıdır.
 // ~/.spoofdpi-tr/config.json içinde saklanır.
 type Config struct {
-	// SpoofDPIVersion, indirilen resmî spoofdpi binary sürümü (örn. "1.5.3").
-	SpoofDPIVersion string `json:"spoofdpi_version"`
-	// Port, spoofdpi'nin dinleyeceği yerel proxy portu (varsayılan 8080).
+	// Port, tpws motorunun dinleyeceği yerel TPROXY/redirect portu (varsayılan 988).
+	// PF, 443 trafiğini bu porta yönlendirir.
 	Port int `json:"port"`
-	// Domains, PAC tarafından proxy'ye yönlendirilecek alan adları (örn. "discord.com").
+	// Domains, tpws hostlist'ine yazılan, DPI-bypass uygulanacak alan adları
+	// (örn. "discord.com"). tpws "subdomain auto apply" yapar; düz domain yeterli.
 	Domains []string `json:"domains"`
-	// DNS ayarları (Türkiye'de DNS zehirlemesi yaygın → DoH varsayılan açık).
-	EnableDoH bool   `json:"enable_doh"`
-	DNSAddr   string `json:"dns_addr"`
+	// EnableDoH / DNSAddr, eski PAC+spoofdpi mimarisinden kalmıştır. tpws DNS
+	// çözümlemesi YAPMAZ; bu alanlar artık kullanılmaz ama geriye dönük JSON
+	// uyumluluğu için saklanır.
+	EnableDoH bool   `json:"enable_doh,omitempty"`
+	DNSAddr   string `json:"dns_addr,omitempty"`
 }
 
 // Default, ilk kurulumda kullanılan makul Türkiye varsayılanlarını döndürür.
-// Domains kasıtlı boştur; Plan 003 küratörlü blocklist'i sağlayacak.
+// Domains kasıtlı boştur; blocklist kategorileri sağlayacak.
 func Default() *Config {
 	return &Config{
-		Port:      8080,
-		Domains:   []string{},
-		EnableDoH: true,
-		DNSAddr:   "1.1.1.1",
+		// 988 tpws redirect portu — yaygın geliştirici portlarıyla (8080/8081/19000
+		// Expo/Metro) çakışmaz. Kullanıcı 'port' komutuyla değiştirebilir.
+		Port:    988,
+		Domains: []string{},
 	}
+}
+
+// NormalizeDomains, ham domain listesini standart biçime getirir:
+// trim, lower, "*." / "." önek strip, boşları at, tekilleştir, sırala.
+func NormalizeDomains(in []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, d := range in {
+		d = strings.ToLower(strings.TrimSpace(d))
+		d = strings.TrimPrefix(d, "*.")
+		d = strings.TrimPrefix(d, ".")
+		if d == "" || seen[d] {
+			continue
+		}
+		seen[d] = true
+		out = append(out, d)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // Dir, yapılandırma dizinini döndürür: ~/.spoofdpi-tr
