@@ -19,6 +19,8 @@ struct MenuBarPanel: View {
     // editor ODAKTA DEĞİLKEN senkronlarız: kullanıcı yazarken ezilmez (BUG3),
     // harici/kaydet sonrası değişimler yansır (#5: stale TextEditor düzeltildi).
     @FocusState private var domainsFocused: Bool
+    // ALAN ADLARI bölümü açılır-kapanır. Varsayılan KAPALI — panel daha ferah.
+    @State private var domainsExpanded = false
 
     // Discord hızlı profili — her satır bir kök alan adı.
     private let discordDomains = [
@@ -224,58 +226,70 @@ struct MenuBarPanel: View {
 
     private var domainsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(state.t("section.domains"))
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(state.domains.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-
-            Text(state.t("domains.hint"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            TextEditor(text: $domainsText)
-                .font(.body.monospaced())
-                .frame(height: 110)
-                .scrollContentBackground(.hidden)
-                .padding(6)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
-                .focused($domainsFocused)
-
-            HStack(spacing: 8) {
-                Button {
-                    domainsText = discordDomains.joined(separator: "\n")
-                } label: {
-                    Label(state.t("btn.discordprofile"), systemImage: "bolt.fill")
-                        .font(.callout)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(state.busy)
-
-                Spacer()
-            }
-
+            // Açılır-kapanır başlık satırı — tüm satır tıklanabilir.
             Button {
-                // Kaydet → CLI set → persist. Tamamlanınca normalize edilmiş
-                // listeyle metni yeniden senkronla (BUG3: kaydet gerçekten
-                // persist eder, panel kapanıp açılınca domainler durur).
-                state.applyDomains(domainsText) { normalized in
-                    domainsText = normalized.joined(separator: "\n")
-                }
+                withAnimation(.easeInOut(duration: 0.2)) { domainsExpanded.toggle() }
             } label: {
-                Text(state.t("btn.saveapply"))
-                    .frame(maxWidth: .infinity)
+                HStack {
+                    Text(state.t("section.domains"))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                    Text("\(state.domains.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Spacer()
+                    Image(systemName: domainsExpanded ? "chevron.down" : "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .disabled(state.busy)
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+
+            if domainsExpanded {
+                Text(state.t("domains.hint"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                TextEditor(text: $domainsText)
+                    .font(.body.monospaced())
+                    .frame(height: 110)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                    .focused($domainsFocused)
+
+                HStack(spacing: 8) {
+                    Button {
+                        domainsText = discordDomains.joined(separator: "\n")
+                    } label: {
+                        Label(state.t("btn.discordprofile"), systemImage: "bolt.fill")
+                            .font(.callout)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(state.busy)
+
+                    Spacer()
+                }
+
+                Button {
+                    // Kaydet → CLI set → persist. Tamamlanınca normalize edilmiş
+                    // listeyle metni yeniden senkronla (BUG3: kaydet gerçekten
+                    // persist eder, panel kapanıp açılınca domainler durur).
+                    state.applyDomains(domainsText) { normalized in
+                        domainsText = normalized.joined(separator: "\n")
+                    }
+                } label: {
+                    Text(state.t("btn.saveapply"))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .disabled(state.busy)
+            }
         }
     }
 
