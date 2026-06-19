@@ -45,9 +45,23 @@ spoofdpi-tr add discord.com  # bypass listesine domain ekle
 spoofdpi-tr remove discord.com # listeden domain çıkar
 spoofdpi-tr set a.com b.com  # listeyi verilen domainlerle tamamen değiştir
 spoofdpi-tr list             # bypass edilen domainleri listele
-spoofdpi-tr port 989         # tpws redirect portunu değiştir (1-65535)
+spoofdpi-tr port 9090        # tpws redirect portunu değiştir (1-65535)
 spoofdpi-tr uninstall        # tamamen kaldır
 ```
+
+#### Menü Çubuğu Uygulaması
+
+Proje, terminal sevmeyenler için native bir **macOS menü çubuğu uygulaması** (SwiftUI) içerir.
+
+- **Ne yapar:** Menü çubuğunda (üst barda) yaşar, **dock ikonu yoktur**. Tıklayınca: koruma durumu (Korunuyorsunuz/Kapalı), **aç/kapa anahtarı**, açılır-kapanır alan adı düzenleyici (text area + Discord profili + Kaydet ve Uygula), bağlantı testi (Discord/OpenAI/Anthropic/GitHub), ayarlar (port, dil TR/EN, kaldır). **Light/Dark moda otomatik uyum**, native macOS görünümü.
+- **Nasıl derlenir/çalıştırılır:**
+  ```bash
+  cd menubar
+  ./build-app.sh
+  open "SpoofDPI-Türkiye.app"
+  ```
+  (Go + Xcode Command Line Tools gerekir. CLI bundle'a gömülüdür; ama sistem kurulumu için yine de `spoofdpi-tr install` veya `curl|bash` gerekir — GUI on/off/durum için CLI'ı kullanır.)
+- NOT: GUI, kurulu CLI'a (`spoofdpi-tr`) shell-out eder; önce CLI kurulu olmalı (install.sh).
 
 #### Kaldırma (macOS)
 
@@ -122,9 +136,23 @@ spoofdpi-tr add discord.com  # add a domain to the bypass list
 spoofdpi-tr remove discord.com # remove a domain from the list
 spoofdpi-tr set a.com b.com  # replace the list entirely with given domains
 spoofdpi-tr list             # list bypassed domains
-spoofdpi-tr port 989         # change the tpws redirect port (1-65535)
+spoofdpi-tr port 9090        # change the tpws redirect port (1-65535)
 spoofdpi-tr uninstall        # remove everything
 ```
+
+#### Menu Bar App
+
+The project includes a native **macOS menu bar app** (SwiftUI) for those who do not like the terminal.
+
+- **What it does:** It lives in the menu bar (top bar) and has **no dock icon**. When clicked: protection status (Protected/Off), an **on/off toggle**, a collapsible domain editor (text area + Discord profile + Save and Apply), connection test (Discord/OpenAI/Anthropic/GitHub), settings (port, language TR/EN, uninstall). **Automatic Light/Dark mode adaptation**, native macOS look.
+- **How to build/run:**
+  ```bash
+  cd menubar
+  ./build-app.sh
+  open "SpoofDPI-Türkiye.app"
+  ```
+  (Requires Go + Xcode Command Line Tools. The CLI is embedded in the bundle; but system setup still needs `spoofdpi-tr install` or `curl|bash` — the GUI uses the CLI for on/off/status.)
+- NOTE: The GUI shells out to the installed CLI (`spoofdpi-tr`); the CLI must be installed first (install.sh).
 
 #### Uninstallation (macOS)
 
