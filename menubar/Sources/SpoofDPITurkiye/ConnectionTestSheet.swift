@@ -1,10 +1,10 @@
 import SwiftUI
 
-// MARK: - Bağlantı testi sheet'i (native Form/List)
+// MARK: - Bağlantı testi ekranı (popover içi inline — sheet YOK, BUG4 fix)
 
-struct ConnectionTestSheet: View {
+struct ConnectionTestScreen: View {
     @EnvironmentObject private var state: AppState
-    @Environment(\.dismiss) private var dismiss
+    var onBack: () -> Void
 
     private let targets = ["Discord", "OpenAI / Codex", "Anthropic / Claude", "GitHub"]
 
@@ -14,13 +14,22 @@ struct ConnectionTestSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Başlık çubuğu
+            // Başlık çubuğu — geri butonu güvenilir biçimde main'e döner.
             HStack {
+                Button {
+                    onBack()
+                } label: {
+                    Label(state.t("done"), systemImage: "chevron.left")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.plain)
+                Spacer()
                 Text(state.t("test.title"))
                     .font(.headline)
                 Spacer()
-                Button(state.t("done")) { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+                Label(state.t("done"), systemImage: "chevron.left")
+                    .labelStyle(.titleAndIcon)
+                    .opacity(0)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -38,6 +47,7 @@ struct ConnectionTestSheet: View {
                 }
             }
             .listStyle(.inset)
+            .frame(height: 220)
 
             Divider()
 
@@ -55,7 +65,6 @@ struct ConnectionTestSheet: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .frame(width: 360, height: 320)
     }
 
     @ViewBuilder

@@ -1,24 +1,37 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Ayarlar sheet'i (native Form)
+// MARK: - Ayarlar ekranı (popover içi inline — sheet YOK, BUG4 fix)
 
-struct SettingsSheet: View {
+struct SettingsScreen: View {
     @EnvironmentObject private var state: AppState
-    @Environment(\.dismiss) private var dismiss
+    var onBack: () -> Void
 
     @State private var portValue: Int = 8080
     @State private var showUninstallAlert = false
 
+    // Kaydedilmemiş port değişikliği var mı? Sadece farklıysa "Uygula" aktif.
+    private var portDirty: Bool { portValue != state.port }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Başlık çubuğu
+            // Başlık çubuğu — geri butonu güvenilir biçimde main'e döner.
             HStack {
+                Button {
+                    onBack()
+                } label: {
+                    Label(state.t("done"), systemImage: "chevron.left")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.plain)
+                Spacer()
                 Text(state.t("settings.title"))
                     .font(.headline)
                 Spacer()
-                Button(state.t("done")) { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+                // Simetri için görünmez yer tutucu.
+                Label(state.t("done"), systemImage: "chevron.left")
+                    .labelStyle(.titleAndIcon)
+                    .opacity(0)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -27,7 +40,8 @@ struct SettingsSheet: View {
 
             Form {
                 Section {
-                    // Port
+                    // Port — değer değiştir + "Uygula" ile async setPort
+                    // (her tuş vuruşunda servis yeniden başlatılmaz).
                     HStack {
                         Text(state.t("settings.port"))
                         Spacer()
@@ -35,13 +49,24 @@ struct SettingsSheet: View {
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 70)
                             .multilineTextAlignment(.trailing)
+                            .disabled(state.busy)
                         Stepper("", value: $portValue, in: 1...65535)
                             .labelsHidden()
+                            .disabled(state.busy)
                     }
-                    .onChange(of: portValue) { _, newValue in
-                        if newValue != state.port {
-                            state.setPort(newValue)
+
+                    HStack {
+                        Spacer()
+                        if state.busy {
+                            ProgressView().controlSize(.small)
                         }
+                        Button(state.t("btn.apply")) {
+                            // Aralık güvenliği — CLI ayrıca doğrular.
+                            let p = min(max(portValue, 1), 65535)
+                            portValue = p
+                            state.setPort(p)
+                        }
+                        .disabled(state.busy || !portDirty)
                     }
 
                     // Dil
@@ -75,12 +100,17 @@ struct SettingsSheet: View {
             }
             .formStyle(.grouped)
         }
-        .frame(width: 360, height: 360)
+        .frame(height: 380)
         .onAppear { portValue = state.port }
+        // state.port harici değişirse (ör. refresh) alanı senkronla — ama
+        // kullanıcı düzenlerken değil: yalnızca busy değilken ve dirty değilken.
+        .onChange(of: state.port) { _, newValue in
+            if !state.busy { portValue = newValue }
+        }
         .alert(state.t("uninstall.confirm"), isPresented: $showUninstallAlert) {
             Button(state.t("uninstall.confirm.btn"), role: .destructive) {
                 state.uninstall()
-                dismiss()
+                onBack()
             }
             Button(state.t("cancel"), role: .cancel) {}
         }

@@ -23,6 +23,7 @@ private let translations: [String: [Lang: String]] = [
     "btn.refresh":              [.tr: "Yenile",                .en: "Refresh"],
     "btn.uninstall":            [.tr: "SpoofDPI'ı Kaldır",     .en: "Uninstall SpoofDPI"],
     "btn.saveapply":            [.tr: "Kaydet ve Uygula",      .en: "Save & Apply"],
+    "btn.apply":                [.tr: "Uygula",                .en: "Apply"],
     "btn.discord":              [.tr: "Discord profili",       .en: "Discord profile"],
     "btn.runtest":              [.tr: "Test Et",               .en: "Run Test"],
     // Bilgi satırları

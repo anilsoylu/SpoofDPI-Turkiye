@@ -71,7 +71,7 @@ func Status() (string, error) {
 // bunu `osascript -e 'do shell script "..." with administrator privileges'` ile
 // çalıştırır. Bu fonksiyon SAFtır (yalnızca metin üretir).
 func InstallScript(patchedPFConf string, tpwsBin string, tpwsArgs []string, sudoUser string) string {
-	helper := HelperScript()
+	helper := HelperScript(tpwsBin, engine.HostlistPath())
 	plist := LaunchDaemonPlist(tpwsBin, tpwsArgs)
 	sudoers := SudoersRule(sudoUser)
 

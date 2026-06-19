@@ -3,9 +3,21 @@ import AppKit
 
 // MARK: - Menü çubuğu paneli (native macOS / Control Center stili)
 
+// Popover içi ekranlar — sheet yerine tek pencere içinde gezinme (BUG4 fix).
+enum PanelScreen {
+    case main
+    case settings
+    case test
+}
+
 struct MenuBarPanel: View {
     @EnvironmentObject private var state: AppState
     @State private var domainsText: String = ""
+    // Aktif ekran. Sheet kullanmıyoruz; geri butonuyla main'e döneriz.
+    @State private var screen: PanelScreen = .main
+    // domainsText'in ilk kez seed edildiğini izler; refresh sırasında kullanıcının
+    // yazdığını EZMEMEK için yalnızca ilk açılışta + kaydet sonrası senkronlanır.
+    @State private var domainsSeeded = false
 
     // Discord hızlı profili — her satır bir kök alan adı.
     private let discordDomains = [
@@ -18,6 +30,26 @@ struct MenuBarPanel: View {
     ]
 
     var body: some View {
+        Group {
+            switch screen {
+            case .main:
+                mainScreen
+            case .settings:
+                SettingsScreen(onBack: { screen = .main })
+                    .environmentObject(state)
+            case .test:
+                ConnectionTestScreen(onBack: { screen = .main })
+                    .environmentObject(state)
+            }
+        }
+        .frame(width: 332)
+        // İlk açılışta domains metnini bir kez seed et (BUG3: kullanıcı yazarken ezme).
+        .onAppear { seedDomainsIfNeeded() }
+    }
+
+    // MARK: - Ana ekran
+
+    private var mainScreen: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
 
@@ -32,16 +64,14 @@ struct MenuBarPanel: View {
             footer
         }
         .padding(16)
-        .frame(width: 332)
-        // Materyal/popover varsayılan zemini — sistem otomatik adapte eder.
-        .onAppear { domainsText = state.domains.joined(separator: "\n") }
-        .onChange(of: state.domains) { domainsText = state.domains.joined(separator: "\n") }
-        .sheet(isPresented: $state.showTestSheet) {
-            ConnectionTestSheet().environmentObject(state)
-        }
-        .sheet(isPresented: $state.showSettingsSheet) {
-            SettingsSheet().environmentObject(state)
-        }
+    }
+
+    // domainsText'i yalnızca ilk kez (veya harici/kaydet sonrası) state.domains
+    // ile doldurur; kullanıcı düzenlerken çağrılmaz (BUG3 fix).
+    private func seedDomainsIfNeeded() {
+        guard !domainsSeeded else { return }
+        domainsText = state.domains.joined(separator: "\n")
+        domainsSeeded = true
     }
 
     // MARK: - Header (minik marka, durum noktası kahraman karta taşındı)
@@ -224,7 +254,12 @@ struct MenuBarPanel: View {
             }
 
             Button {
-                state.applyDomains(domainsText)
+                // Kaydet → CLI set → persist. Tamamlanınca normalize edilmiş
+                // listeyle metni yeniden senkronla (BUG3: kaydet gerçekten
+                // persist eder, panel kapanıp açılınca domainler durur).
+                state.applyDomains(domainsText) { normalized in
+                    domainsText = normalized.joined(separator: "\n")
+                }
             } label: {
                 Text(state.t("btn.saveapply"))
                     .frame(maxWidth: .infinity)
@@ -240,13 +275,13 @@ struct MenuBarPanel: View {
     private var footer: some View {
         HStack {
             Button {
-                state.showTestSheet = true
+                screen = .test
             } label: {
                 Label(state.t("footer.test"), systemImage: "clock.arrow.circlepath")
             }
             Spacer()
             Button {
-                state.showSettingsSheet = true
+                screen = .settings
             } label: {
                 Label(state.t("footer.settings"), systemImage: "gearshape")
             }

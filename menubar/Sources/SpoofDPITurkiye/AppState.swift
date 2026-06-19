@@ -46,10 +46,6 @@ final class AppState: ObservableObject {
     @Published var lastMessage: String = ""
     @Published var testResults: [String: TestResult] = [:]
 
-    // Sheet sunumu
-    @Published var showTestSheet: Bool = false
-    @Published var showSettingsSheet: Bool = false
-
     // Çeviri kısayolu
     func t(_ key: String) -> String {
         Localization.t(key, lang: lang)
@@ -145,7 +141,11 @@ final class AppState: ObservableObject {
         }
     }
 
-    func applyDomains(_ text: String) {
+    // applyDomains, metni satırlara böler, CLI ile kaydeder+uygular, sonra
+    // config'ten okunan NORMALIZE edilmiş listeyi onSaved ile geri verir.
+    // Çağıran taraf bununla TextEditor metnini yalnızca KAYDET sonrası
+    // senkronlar (BUG3: kullanıcı yazarken ezilmez).
+    func applyDomains(_ text: String, onSaved: (([String]) -> Void)? = nil) {
         busy = true
         Task {
             let lines = text
@@ -161,6 +161,7 @@ final class AppState: ObservableObject {
             }
             refresh()
             busy = false
+            onSaved?(domains)
         }
     }
 
@@ -196,12 +197,20 @@ final class AppState: ObservableObject {
         }
     }
 
-    func setPort(_ p: Int) {
+    // setPort, portu değiştirir; servis çalışıyorsa CLI refreshIfRunning ile
+    // helper'ı yeni portla yeniden başlatır (BUG1 fix sayesinde plist + anchor
+    // birlikte güncellenir). Async; UI busy göstergesiyle donmaz.
+    func setPort(_ p: Int, onDone: (() -> Void)? = nil) {
         busy = true
         Task {
-            CLI.setPort(p)
+            let r = CLI.setPort(p)
+            lastMessage = r.out.trimmingCharacters(in: .whitespacesAndNewlines)
+            if lastMessage.isEmpty {
+                lastMessage = lang == .tr ? "Port \(p) olarak ayarlandı." : "Port set to \(p)."
+            }
             refresh()
             busy = false
+            onDone?()
         }
     }
 
