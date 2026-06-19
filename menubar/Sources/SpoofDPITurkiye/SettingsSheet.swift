@@ -13,6 +13,11 @@ struct SettingsScreen: View {
     // Kaydedilmemiş port değişikliği var mı? Sadece farklıysa "Uygula" aktif.
     private var portDirty: Bool { portValue != state.port }
 
+    // Port geçerli mi? (#6) UI, CLI'a göndermeden ÖNCE 1-65535 aralığını doğrular;
+    // geçersizse "Uygula" devre dışı kalır ve inline hata gösterilir (sessiz
+    // fail / desync yerine). Go tarafı da ValidatePort yapar (defense-in-depth).
+    private var portValid: Bool { portValue >= 1 && portValue <= 65535 }
+
     var body: some View {
         VStack(spacing: 0) {
             // Başlık çubuğu — geri butonu güvenilir biçimde main'e döner.
@@ -55,18 +60,26 @@ struct SettingsScreen: View {
                             .disabled(state.busy)
                     }
 
+                    // Geçersiz port (aralık dışı) inline uyarısı (#6).
+                    if !portValid {
+                        Text(state.t("settings.port.invalid"))
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+
                     HStack {
                         Spacer()
                         if state.busy {
                             ProgressView().controlSize(.small)
                         }
                         Button(state.t("btn.apply")) {
-                            // Aralık güvenliği — CLI ayrıca doğrular.
-                            let p = min(max(portValue, 1), 65535)
-                            portValue = p
-                            state.setPort(p)
+                            // UI'da doğrulanmadan CLI'a gönderilmez (#6); buton
+                            // zaten geçersizken devre dışı, yine de savunma için
+                            // guard ile kontrol et.
+                            guard portValid else { return }
+                            state.setPort(portValue)
                         }
-                        .disabled(state.busy || !portDirty)
+                        .disabled(state.busy || !portDirty || !portValid)
                     }
 
                     // Dil

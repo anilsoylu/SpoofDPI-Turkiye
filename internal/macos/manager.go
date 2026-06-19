@@ -65,14 +65,17 @@ func Status() (string, error) {
 //   - helper'ı /usr/local/libexec'e yazar (root:wheel 0755)
 //   - sudoers kuralını yazar (0440, visudo -cf ile doğrular)
 //   - pf.conf'u yamar (anchor satırları)
-//   - LaunchDaemon plist'i yazar
+//
+// PLIST TEK KAYNAK (#2): LaunchDaemon plist'i bu betik YAZMAZ. Plist'in TEK
+// üreticisi helper'ın write_plist'idir; install sonrası çağrılan
+// `helper start <port>` plist'i güncel portla yazar. Böylece plist iki yerde
+// (Go + bash) üretilmez ve sapma riski ortadan kalkar.
 //
 // Betik, gömülü heredoc'lar üzerinden dosya içeriklerini taşır; çağıran taraf
 // bunu `osascript -e 'do shell script "..." with administrator privileges'` ile
 // çalıştırır. Bu fonksiyon SAFtır (yalnızca metin üretir).
-func InstallScript(patchedPFConf string, tpwsBin string, tpwsArgs []string, sudoUser string) string {
+func InstallScript(patchedPFConf string, tpwsBin string, sudoUser string) string {
 	helper := HelperScript(tpwsBin, engine.HostlistPath())
-	plist := LaunchDaemonPlist(tpwsBin, tpwsArgs)
 	sudoers := SudoersRule(sudoUser)
 
 	var b strings.Builder
@@ -94,27 +97,49 @@ func InstallScript(patchedPFConf string, tpwsBin string, tpwsArgs []string, sudo
 	// pf.conf yaması
 	writeHeredoc(&b, PFConfPath, patchedPFConf)
 
-	// LaunchDaemon plist
+	// LaunchDaemon dizininin var olduğundan emin ol (plist'i helper yazacak).
 	fmt.Fprintf(&b, "mkdir -p %q\n", filepath.Dir(LaunchDaemonPath))
-	writeHeredoc(&b, LaunchDaemonPath, plist)
-	fmt.Fprintf(&b, "chown root:wheel %q\n", LaunchDaemonPath)
-	fmt.Fprintf(&b, "chmod 644 %q\n", LaunchDaemonPath)
 
 	return b.String()
 }
 
 // UninstallScript, uninstall için TEK osascript admin bloğunda çalışacak betiği
-// üretir: helper stop, pf.conf'tan anchor'ı çıkar + yeniden yükle, tüm sistem
-// dosyalarını sil. SAFtır.
+// üretir. SAFtır (yalnızca metin üretir).
+//
+// BOOT GÜVENLİĞİ (#1): pf.conf'ta `load anchor ... from <ANCHOR_PATH>` satırı
+// varken anchor dosyasını silmek, boot'ta pfctl -f /etc/pf.conf'un BAŞARISIZ
+// olmasına yol açar (dangling load anchor → kural yüklenemez → internet bozulur).
+// Bu yüzden SIRA katıdır ve pfctl hatası YUTULMAZ:
+//
+//  1. pf.conf'tan anchor satırlarını çıkar (yeni içerik yazılır).
+//  2. pfctl -f /etc/pf.conf çalıştır ve BAŞARISINI doğrula.
+//  3. SADECE (2) başarılıysa anchor dosyasını sil. pfctl -f başarısızsa anchor
+//     dosyası KORUNUR (load anchor hâlâ geçerli kalır) ve hata raporlanır.
+//
+// LaunchDaemon/helper/sudoers silinmesi pf'den bağımsızdır ve her durumda yapılır.
 func UninstallScript(unpatchedPFConf string) string {
 	var b strings.Builder
-	// Hata olsa bile devam et (best-effort temizlik).
-	fmt.Fprintf(&b, "%q stop 2>/dev/null || true\n", HelperPath)
-	// pf.conf'u eski haline getir ve yeniden yükle.
+	// Hata olsa bile betiğin geri kalanı kontrollü ilerlesin; pfctl başarısını
+	// AÇIKÇA bayrakla izleriz (|| true ile yutmadan).
+	b.WriteString("set +e\n")
+
+	// Daemon'u durdur (best-effort; pf güvenliğini etkilemez).
+	fmt.Fprintf(&b, "%q stop 2>/dev/null\n", HelperPath)
+
+	// 1. pf.conf'u anchor satırları olmadan yeniden yaz.
 	writeHeredoc(&b, PFConfPath, unpatchedPFConf)
-	fmt.Fprintf(&b, "pfctl -f %q 2>/dev/null || true\n", PFConfPath)
-	// Dosyaları sil.
-	for _, p := range []string{LaunchDaemonPath, HelperPath, SudoersPath, AnchorPath} {
+
+	// 2. pf.conf'u yeniden yükle ve sonucu izle. BAŞARISIZ olursa anchor dosyasını
+	//    SİLME (dangling load anchor önlenir) ve net bir hata raporla.
+	fmt.Fprintf(&b, "if pfctl -f %q; then\n", PFConfPath)
+	//    3. SADECE başarılıysa anchor dosyasını sil.
+	fmt.Fprintf(&b, "  rm -f %q\n", AnchorPath)
+	b.WriteString("else\n")
+	fmt.Fprintf(&b, "  echo \"HATA: pfctl -f %s basarisiz — anchor dosyasi (%s) KORUNDU; pf.conf butunlugu icin manuel kontrol gerekli.\" >&2\n", PFConfPath, AnchorPath)
+	b.WriteString("fi\n")
+
+	// LaunchDaemon, helper ve sudoers'ı sil (pf'den bağımsız; her durumda).
+	for _, p := range []string{LaunchDaemonPath, HelperPath, SudoersPath} {
 		fmt.Fprintf(&b, "rm -f %q\n", p)
 	}
 	return b.String()

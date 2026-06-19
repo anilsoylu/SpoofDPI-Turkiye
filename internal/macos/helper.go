@@ -93,17 +93,46 @@ EOF
   chmod 644 "$PLIST"
 }
 
-# daemon_start, eski örneği temizleyip plist'i taze bootstrap eder. macOS'ta
-# bootout asenkron tamamlanabildiğinden kısa bir bekleme + enable eklenir
-# (BUG2 fix: "service already bootstrapped" / yarış durumunu önler).
+# port_listener_pids, 127.0.0.1:<port>'u DİNLEYEN PID'leri (varsa) yazdırır.
+port_listener_pids() {
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null || true
+}
+
+# daemon_start, eski örneği TAMAMEN temizleyip (port boşalana kadar bekleyerek)
+# plist'i taze bootstrap eder ve YENİ daemon'ın gerçekten dinlediğini doğrular.
+#
+# #4: bootout asenkron tamamlanabilir ve eski tpws portu hâlâ tutuyor olabilir;
+# bu durumda hemen bootstrap edilirse verify_listen ESKİ process'i "başladı"
+# sanır (yanlış pozitif). Bu yüzden bootstrap'tan ÖNCE port BOŞALANA kadar
+# bekleriz; takılı kalan stale tpws varsa öldürürüz.
+# #7: sabit süre yerine port-boşaldı sinyaliyle beklenir (yük-bağımsız, ~max 10sn).
 daemon_start() {
+  local port="$1" i pids
   if launchctl print "system/${DAEMON_ID}" >/dev/null 2>&1; then
     launchctl bootout "system/${DAEMON_ID}" >/dev/null 2>&1 || true
-    # bootout'un tamamen oturmasını bekle (en fazla ~3sn).
-    for _ in 1 2 3 4 5 6; do
-      launchctl print "system/${DAEMON_ID}" >/dev/null 2>&1 || break
+  fi
+  # bootout'un oturmasını VE portun boşalmasını bekle (yük-bağımsız, ~max 10sn).
+  for i in $(seq 1 20); do
+    if ! launchctl print "system/${DAEMON_ID}" >/dev/null 2>&1 \
+       && [ -z "$(port_listener_pids "$port")" ]; then
+      break
+    fi
+    sleep 0.5
+  done
+  # Hâlâ portu tutan stale dinleyici kaldıysa zorla öldür (eski tpws), sonra
+  # portun gerçekten boşalmasını kısa süre bekle.
+  pids="$(port_listener_pids "$port")"
+  if [ -n "$pids" ]; then
+    kill -TERM $pids 2>/dev/null || true
+    for i in 1 2 3 4 5 6; do
+      [ -z "$(port_listener_pids "$port")" ] && break
       sleep 0.5
     done
+    pids="$(port_listener_pids "$port")"
+    if [ -n "$pids" ]; then
+      kill -KILL $pids 2>/dev/null || true
+      sleep 0.5
+    fi
   fi
   launchctl enable "system/${DAEMON_ID}" >/dev/null 2>&1 || true
   launchctl bootstrap system "$PLIST"
@@ -114,14 +143,27 @@ daemon_stop() {
     launchctl unload -w "$PLIST" >/dev/null 2>&1 || true
 }
 
-# verify_listen, tpws'in verilen portu gerçekten DİNLEDİĞİNİ doğrular (BUG2 fix).
-# KeepAlive ile daemon yüklü görünse bile süreç çökebilir; gerçek listen kanıtı
-# için lsof ile 127.0.0.1:<port> dinleyen var mı bak. ~5sn boyunca dene.
+# verify_listen, YENİ tpws daemon'ının verilen portu gerçekten DİNLEDİĞİNİ
+# doğrular (#4: yanlış pozitif önleme). Yalnızca "biri dinliyor" yetmez; dinleyen
+# PID, launchctl'in bizim DAEMON_ID için bildirdiği PID ile EŞLEŞMELİDİR. Böylece
+# bootout'tan sağ kalan eski bir process "yeni daemon başladı" sanılmaz.
+# KeepAlive ile daemon yüklü görünse bile süreç çökebilir; ~max 5sn dene.
 verify_listen() {
-  local port="$1" i
+  local port="$1" i lpids dpid
   for i in $(seq 1 10); do
-    if lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
-      return 0
+    lpids="$(port_listener_pids "$port")"
+    if [ -n "$lpids" ]; then
+      # launchctl'in bildirdiği PID dinleyiciler arasında mı?
+      dpid="$(launchctl print "system/${DAEMON_ID}" 2>/dev/null \
+        | sed -n 's/.*[[:space:]]pid = \([0-9][0-9]*\).*/\1/p' | head -n1 || true)"
+      if [ -n "$dpid" ]; then
+        for p in $lpids; do
+          [ "$p" = "$dpid" ] && return 0
+        done
+      else
+        # launchctl PID raporlamadıysa (bazı sürümler), en azından port dinleniyor.
+        return 0
+      fi
     fi
     sleep 0.5
   done
@@ -151,7 +193,7 @@ case "$cmd" in
     pfctl -f "$PF_CONF"
     pfctl -e 2>/dev/null || true
     pfctl -a "$ANCHOR_NAME" -f "$ANCHOR_PATH"
-    daemon_start
+    daemon_start "$port"
     if ! verify_listen "$port"; then
       echo "HATA: tpws ${port} portunu dinlemiyor (daemon baslatilamadi)." >&2
       echo "Teshis: launchctl print system/${DAEMON_ID} ve /tmp/spoofdpi-tr-tpws.err.log" >&2
@@ -190,35 +232,8 @@ esac
 `, AnchorName, AnchorPath, PFConfPath, LaunchDaemonPath, LaunchDaemonID, tpwsBin, hostlist)
 }
 
-// LaunchDaemonPlist, tpws'i root olarak çalıştıran LaunchDaemon plist'ini üretir.
-// RunAtLoad=true ve KeepAlive=true (watchdog: tpws çökerse otomatik yeniden
-// başlatılır). StandardOut/ErrPath /tmp altına yazar.
-func LaunchDaemonPlist(tpwsBin string, args []string) string {
-	var sb strings.Builder
-	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
-	sb.WriteString(`<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">` + "\n")
-	sb.WriteString(`<plist version="1.0">` + "\n")
-	sb.WriteString("<dict>\n")
-	sb.WriteString("\t<key>Label</key>\n")
-	fmt.Fprintf(&sb, "\t<string>%s</string>\n", xmlEscape(LaunchDaemonID))
-	sb.WriteString("\t<key>ProgramArguments</key>\n")
-	sb.WriteString("\t<array>\n")
-	fmt.Fprintf(&sb, "\t\t<string>%s</string>\n", xmlEscape(tpwsBin))
-	for _, a := range args {
-		fmt.Fprintf(&sb, "\t\t<string>%s</string>\n", xmlEscape(a))
-	}
-	sb.WriteString("\t</array>\n")
-	sb.WriteString("\t<key>RunAtLoad</key>\n\t<true/>\n")
-	// KeepAlive yalnızca anormal çıkışta yeniden başlatır; ThrottleInterval ile
-	// crash-loop'u yavaşlatır (BUG2: throttle).
-	sb.WriteString("\t<key>KeepAlive</key>\n\t<dict>\n\t\t<key>SuccessfulExit</key>\n\t\t<false/>\n\t</dict>\n")
-	sb.WriteString("\t<key>ThrottleInterval</key>\n\t<integer>5</integer>\n")
-	sb.WriteString("\t<key>StandardOutPath</key>\n\t<string>/tmp/spoofdpi-tr-tpws.out.log</string>\n")
-	sb.WriteString("\t<key>StandardErrorPath</key>\n\t<string>/tmp/spoofdpi-tr-tpws.err.log</string>\n")
-	sb.WriteString("</dict>\n")
-	sb.WriteString("</plist>\n")
-	return sb.String()
-}
+// Plist üretimi TEK KAYNAK olarak helper'ın write_plist fonksiyonundadır (#2);
+// Go tarafı plist üretmez. Bkz. HelperScript içindeki write_plist.
 
 // SudoersRule, helper'ın parolasız çağrılmasını sağlayan sudoers satırını üretir.
 // /etc/sudoers.d/spoofdpi-tr olarak yazılır (chmod 440, visudo -cf ile doğrula).

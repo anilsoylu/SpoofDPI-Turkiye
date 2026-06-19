@@ -15,9 +15,10 @@ struct MenuBarPanel: View {
     @State private var domainsText: String = ""
     // Aktif ekran. Sheet kullanmıyoruz; geri butonuyla main'e döneriz.
     @State private var screen: PanelScreen = .main
-    // domainsText'in ilk kez seed edildiğini izler; refresh sırasında kullanıcının
-    // yazdığını EZMEMEK için yalnızca ilk açılışta + kaydet sonrası senkronlanır.
-    @State private var domainsSeeded = false
+    // TextEditor'ın odakta olup olmadığı. domainsText'i state.domains ile yalnızca
+    // editor ODAKTA DEĞİLKEN senkronlarız: kullanıcı yazarken ezilmez (BUG3),
+    // harici/kaydet sonrası değişimler yansır (#5: stale TextEditor düzeltildi).
+    @FocusState private var domainsFocused: Bool
 
     // Discord hızlı profili — her satır bir kök alan adı.
     private let discordDomains = [
@@ -43,8 +44,12 @@ struct MenuBarPanel: View {
             }
         }
         .frame(width: 332)
-        // İlk açılışta domains metnini bir kez seed et (BUG3: kullanıcı yazarken ezme).
-        .onAppear { seedDomainsIfNeeded() }
+        // İlk açılışta domains metnini state ile doldur (editor henüz odakta değil).
+        .onAppear { syncDomainsTextIfUnfocused() }
+        // state.domains harici/kaydet sonrası değişirse metni senkronla — ama
+        // YALNIZCA editor odakta değilken (kullanıcı yazarken ezme; BUG3 korunur,
+        // #5: stale TextEditor çözülür).
+        .onChange(of: state.domains) { _, _ in syncDomainsTextIfUnfocused() }
     }
 
     // MARK: - Ana ekran
@@ -66,12 +71,15 @@ struct MenuBarPanel: View {
         .padding(16)
     }
 
-    // domainsText'i yalnızca ilk kez (veya harici/kaydet sonrası) state.domains
-    // ile doldurur; kullanıcı düzenlerken çağrılmaz (BUG3 fix).
-    private func seedDomainsIfNeeded() {
-        guard !domainsSeeded else { return }
-        domainsText = state.domains.joined(separator: "\n")
-        domainsSeeded = true
+    // domainsText'i state.domains ile senkronlar — YALNIZCA editor odakta
+    // değilken. Kullanıcı yazarken çağrılsa bile odak nedeniyle metni ezmez
+    // (BUG3); harici/kaydet sonrası değişimleri yansıtır (#5).
+    private func syncDomainsTextIfUnfocused() {
+        guard !domainsFocused else { return }
+        let joined = state.domains.joined(separator: "\n")
+        if domainsText != joined {
+            domainsText = joined
+        }
     }
 
     // MARK: - Header (minik marka, durum noktası kahraman karta taşındı)
@@ -238,6 +246,7 @@ struct MenuBarPanel: View {
                 .scrollContentBackground(.hidden)
                 .padding(6)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                .focused($domainsFocused)
 
             HStack(spacing: 8) {
                 Button {

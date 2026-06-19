@@ -37,17 +37,27 @@ sudo launchctl bootout system "$LAUNCHD_PATH" 2>/dev/null \
   || sudo launchctl unload -w "$LAUNCHD_PATH" 2>/dev/null || true
 
 # pf.conf'tan anchor satırlarımızı çıkar ve pf'yi yeniden yükle.
+# BOOT GÜVENLİĞİ (#1): anchor dosyasını YALNIZCA pfctl -f başarılıysa sil.
+# `load anchor ... from $ANCHOR_PATH` satırı pf.conf'tan çıkmadan veya pfctl
+# başarısızken anchor dosyası silinirse boot'ta pf yüklemesi kırılır.
+anchor_safe_to_remove=1
 if [ -f "$PF_CONF" ]; then
   sudo sed -i '' \
     -e '/^[[:space:]]*rdr-anchor[[:space:]]*"spoofdpi-tr"/d' \
     -e '/^[[:space:]]*anchor[[:space:]]*"spoofdpi-tr"/d' \
     -e '/^[[:space:]]*load anchor[[:space:]]*"spoofdpi-tr"/d' \
     "$PF_CONF" 2>/dev/null || true
-  sudo pfctl -f "$PF_CONF" 2>/dev/null || true
+  if ! sudo pfctl -f "$PF_CONF"; then
+    anchor_safe_to_remove=0
+    echo "HATA: pfctl -f $PF_CONF başarısız — anchor dosyası ($ANCHOR_PATH) KORUNDU." >&2
+  fi
 fi
 
-# Sistem dosyalarını sil.
-sudo rm -f "$HELPER_PATH" "$SUDOERS_PATH" "$ANCHOR_PATH" "$LAUNCHD_PATH" 2>/dev/null || true
+# Sistem dosyalarını sil. Anchor dosyası yalnızca pf güvenliyse silinir.
+sudo rm -f "$HELPER_PATH" "$SUDOERS_PATH" "$LAUNCHD_PATH" 2>/dev/null || true
+if [ "$anchor_safe_to_remove" -eq 1 ]; then
+  sudo rm -f "$ANCHOR_PATH" 2>/dev/null || true
+fi
 
 # Yapılandırma + tpws binary dizinini sil.
 rm -rf "$SPOOF_DIR"

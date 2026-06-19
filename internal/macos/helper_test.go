@@ -50,20 +50,60 @@ func TestHelperScriptValidatesPort(t *testing.T) {
 	}
 }
 
-func TestLaunchDaemonPlist(t *testing.T) {
-	p := LaunchDaemonPlist("/Users/x/.spoofdpi-tr/bin/tpws", []string{"--port", "988", "--tlsrec=sni"})
+// TestHelperPlistSingleSource, plist'in TEK üreticisinin helper write_plist
+// olduğunu (#2) ve doğru anahtarları/argümanları ürettiğini doğrular. Go tarafı
+// artık plist üretmediğinden plist içeriği yalnızca helper script'te yaşar.
+func TestHelperPlistSingleSource(t *testing.T) {
+	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt")
 	for _, want := range []string{
-		"com.spoofdpi-tr",
+		"write_plist",
+		"<key>Label</key>",
 		"<key>RunAtLoad</key>",
 		"<key>KeepAlive</key>",
-		"<true/>",
-		"--tlsrec=sni",
-		"/Users/x/.spoofdpi-tr/bin/tpws",
+		"<key>SuccessfulExit</key>",
+		"<key>ThrottleInterval</key>",
 		"<key>StandardOutPath</key>",
+		"<key>StandardErrorPath</key>",
+		"--user=root",
+		"--bind-addr=127.0.0.1",
+		"--hostlist=${HOSTLIST}",
+		"--tlsrec=sni",
+		"--port=${port}",
 	} {
-		if !strings.Contains(p, want) {
-			t.Errorf("plist %q içermeli:\n%s", want, p)
+		if !strings.Contains(s, want) {
+			t.Errorf("helper write_plist %q içermeli", want)
 		}
+	}
+}
+
+// TestUninstallScriptSafeOrdering, #1 boot güvenliğini garanti eder: pf.conf'tan
+// anchor satırları çıkarılır, pfctl -f çalıştırılır ve anchor dosyası YALNIZCA
+// pfctl başarılıysa silinir. pfctl hatası YUTULMAMALIdır (|| true yok).
+func TestUninstallScriptSafeOrdering(t *testing.T) {
+	s := UninstallScript("# pf.conf without anchor\n")
+
+	// pfctl çağrısı bir koşulun içinde olmalı (başarı doğrulanmalı).
+	if !strings.Contains(s, "if pfctl -f") {
+		t.Error("UninstallScript pfctl başarısını koşulla doğrulamalı (if pfctl -f)")
+	}
+	// pfctl hatası yutulmamalı.
+	if strings.Contains(s, "pfctl -f \""+PFConfPath+"\" 2>/dev/null || true") ||
+		strings.Contains(s, "pfctl -f "+PFConfPath+" || true") {
+		t.Error("UninstallScript pfctl hatasını '|| true' ile YUTMAMALI")
+	}
+	// SIRA: anchor dosyası rm'i, pfctl -f satırından SONRA gelmeli.
+	pfIdx := strings.Index(s, "if pfctl -f")
+	anchorRmIdx := strings.Index(s, "rm -f \""+AnchorPath+"\"")
+	if pfIdx < 0 || anchorRmIdx < 0 {
+		t.Fatalf("beklenen satırlar yok: pfIdx=%d anchorRmIdx=%d", pfIdx, anchorRmIdx)
+	}
+	if anchorRmIdx < pfIdx {
+		t.Error("anchor dosyası silme pfctl -f'den ÖNCE gelmemeli (#1)")
+	}
+	// pf.conf yeniden yazımı (heredoc) anchor rm'den ÖNCE olmalı.
+	pfConfWriteIdx := strings.Index(s, "cat > \""+PFConfPath+"\"")
+	if pfConfWriteIdx < 0 || pfConfWriteIdx > anchorRmIdx {
+		t.Error("pf.conf yeniden yazımı anchor silmeden ÖNCE olmalı (#1)")
 	}
 }
 

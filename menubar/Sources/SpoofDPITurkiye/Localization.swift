@@ -68,6 +68,7 @@ private let translations: [String: [Lang: String]] = [
     // Ayarlar sayfası
     "settings.title":           [.tr: "Ayarlar",               .en: "Settings"],
     "settings.port":            [.tr: "Port",                  .en: "Port"],
+    "settings.port.invalid":    [.tr: "Port 1-65535 aralığında olmalı.", .en: "Port must be between 1 and 65535."],
     "settings.language":        [.tr: "Dil",                   .en: "Language"],
     "settings.version":         [.tr: "Sürüm",                 .en: "Version"],
     "settings.uninstall":       [.tr: "SpoofDPI'ı Kaldır",     .en: "Uninstall SpoofDPI"],

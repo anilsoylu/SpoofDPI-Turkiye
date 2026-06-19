@@ -181,9 +181,10 @@ func installSystemFiles(cfg *config.Config) error {
 	}
 
 	tpwsBin := engine.BinPath()
-	tpwsArgs := engine.Args(cfg.Port)
 
-	script := macos.InstallScript(patched, tpwsBin, tpwsArgs, user)
+	// Plist'i install betiği YAZMAZ; install sonrası macos.On() çağrısı
+	// `helper start <port>` ile plist'i TEK KAYNAK olarak üretir (#2).
+	script := macos.InstallScript(patched, tpwsBin, user)
 	fmt.Println("\nSistem dosyaları yükleniyor — yönetici parolası istenebilir (tek seferlik)...")
 	return macos.RunAdmin(script, "SpoofDPI Türkiye kurulum izni")
 }
@@ -367,12 +368,21 @@ func runUninstall(args []string) error {
 }
 
 // refreshIfRunning, servis çalışıyorsa yeni hostlist/port ile yeniden başlatır.
+//
+// KISMİ BAŞARI (#3): config zaten DİSKE KAYDEDİLDİ (çağıran "✓ kaydedildi"
+// yazdı). Servis çalışıyorken canlı uygulama BAŞARISIZ olursa kullanıcı bunu
+// AÇIKÇA bilmeli: kaydedilen ayar çalışan servise uygulanamadı. Bu durumda
+// hata DÖNDÜRMEYİZ (config kaydı başarılı; süreç exit 1 ile "her şey bozuldu"
+// dememeli), bunun yerine net bir uyarı + düzeltme adımı yazarız.
 func refreshIfRunning(cfg *config.Config) error {
 	if !installedSystemFiles() || !macos.IsRunning() {
 		return nil
 	}
 	if err := macos.On(cfg.Port, cfg.Domains); err != nil {
-		return fmt.Errorf("servis tazelenirken hata: %w", err)
+		fmt.Fprintf(os.Stderr,
+			"⚠ config kaydedildi ama çalışan servise uygulanamadı: %v\n"+
+				"  Yeni ayarları etkinleştirmek için: spoofdpi-tr on\n", err)
+		return nil
 	}
 	fmt.Println("✓ Servis yeni ayarlarla yeniden yüklendi.")
 	return nil
