@@ -18,11 +18,6 @@ type Config struct {
 	// Domains, tpws hostlist'ine yazılan, DPI-bypass uygulanacak alan adları
 	// (örn. "discord.com"). tpws "subdomain auto apply" yapar; düz domain yeterli.
 	Domains []string `json:"domains"`
-	// EnableDoH / DNSAddr, eski PAC+spoofdpi mimarisinden kalmıştır. tpws DNS
-	// çözümlemesi YAPMAZ; bu alanlar artık kullanılmaz ama geriye dönük JSON
-	// uyumluluğu için saklanır.
-	EnableDoH bool   `json:"enable_doh,omitempty"`
-	DNSAddr   string `json:"dns_addr,omitempty"`
 }
 
 // Default, ilk kurulumda kullanılan makul Türkiye varsayılanlarını döndürür.
