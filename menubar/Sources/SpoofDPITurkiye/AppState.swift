@@ -3,24 +3,12 @@ import SwiftUI
 
 // MARK: - Config JSON modeli
 
+// Yalnızca app'in kullandığı alanlar (port + domains). Go config'i ek alanlar
+// (enable_doh, dns_addr) da yazabilir; Codable bilinmeyen anahtarları yok sayar.
+// spoofdpi_version ARTIK YAZILMIYOR — zorunlu alan koymak decode'u bozardı.
 private struct ConfigJSON: Codable {
-    var spoofDPIVersion: String
     var port: Int
     var domains: [String]
-    var enableDoH: Bool
-    var dnsAddr: String
-
-    enum CodingKeys: String, CodingKey {
-        case spoofDPIVersion = "spoofdpi_version"
-        case port
-        case domains
-        case enableDoH = "enable_doh"
-        case dnsAddr = "dns_addr"
-    }
-
-    static var empty: ConfigJSON {
-        ConfigJSON(spoofDPIVersion: "", port: 8080, domains: [], enableDoH: true, dnsAddr: "1.1.1.1")
-    }
 }
 
 // MARK: - Bağlantı testi sonucu
@@ -36,7 +24,7 @@ struct TestResult {
 @MainActor
 final class AppState: ObservableObject {
     @Published var running: Bool = false
-    @Published var port: Int = 8080
+    @Published var port: Int = 988
     @Published var domains: [String] = []
     @Published var version: String = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0.0"
     @Published var cliInstalled: Bool = false
@@ -65,7 +53,7 @@ final class AppState: ObservableObject {
             port = cfg.port
             domains = cfg.domains
         } else {
-            port = 8080
+            port = 988
             domains = []
         }
 
