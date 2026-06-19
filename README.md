@@ -88,7 +88,6 @@ Kaldırma; helper'ı durdurur, `pf.conf`'u eski haline getirir ve sudoers / help
 #### Önemli notlar
 
 - Yalnızca **macOS** desteklenmektedir (Apple Silicon + Intel).
-- Eski `xvzc/spoofdpi` + PAC mimarisi **artık kullanılmıyor**; motor olarak tpws/zapret kullanılır.
 - Teşekkürler: [bol-van/zapret](https://github.com/bol-van/zapret) — tpws DPI-bypass motoru.
 
 ---
@@ -179,7 +178,6 @@ Uninstall stops the helper, restores `pf.conf`, and removes the sudoers / helper
 #### Notes
 
 - **macOS only** (Apple Silicon + Intel).
-- The old `xvzc/spoofdpi` + PAC architecture is **no longer used**; the engine is now tpws/zapret.
 - Credit and thanks: [bol-van/zapret](https://github.com/bol-van/zapret) — the tpws DPI-bypass engine.
 
 ---
