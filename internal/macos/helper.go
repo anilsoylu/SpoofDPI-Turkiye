@@ -82,6 +82,8 @@ write_plist() {
 	</dict>
 	<key>ThrottleInterval</key>
 	<integer>5</integer>
+	<key>ProcessType</key>
+	<string>Adaptive</string>
 	<key>StandardOutPath</key>
 	<string>/tmp/spoofdpi-tr-tpws.out.log</string>
 	<key>StandardErrorPath</key>

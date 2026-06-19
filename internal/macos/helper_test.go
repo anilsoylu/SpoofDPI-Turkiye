@@ -62,6 +62,8 @@ func TestHelperPlistSingleSource(t *testing.T) {
 		"<key>KeepAlive</key>",
 		"<key>SuccessfulExit</key>",
 		"<key>ThrottleInterval</key>",
+		"<key>ProcessType</key>",
+		"<string>Adaptive</string>",
 		"<key>StandardOutPath</key>",
 		"<key>StandardErrorPath</key>",
 		"--user=root",
