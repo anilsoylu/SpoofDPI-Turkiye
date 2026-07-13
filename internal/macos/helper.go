@@ -71,7 +71,8 @@ write_plist() {
 		<string>--port=${port}</string>
 		<string>--bind-addr=127.0.0.1</string>
 		<string>--hostlist=${HOSTLIST}</string>
-		<string>--tlsrec=sni</string>
+		<string>--split-pos=1,midsld</string>
+		<string>--oob=tls</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>

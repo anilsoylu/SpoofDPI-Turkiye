@@ -17,7 +17,7 @@ Yalnızca seçtiğiniz domainler etkilenir (örn. Discord); geri kalan tüm traf
 #### Nasıl çalışır?
 
 - **Motor: tpws** — açık kaynak ([bol-van/zapret](https://github.com/bol-van/zapret)) bir DPI-bypass motoru. Kurulum sırasında **kaynaktan derlenir** (`git clone --depth 1 zapret` → `make mac`) ve `~/.spoofdpi-tr/bin/tpws` altına yerleştirilir. İndirilmiş hazır binary kullanılmaz.
-- **macOS PF transparan redirect** — PF, 443 trafiğini tpws'in dinlediği porta (varsayılan **988**) yönlendirir. TLS şifresi çözülmez; yalnızca TLS `ClientHello` içindeki SNI kaydı yeniden düzenlenir (`--tlsrec=sni`) ve hedef sunucuya gönderilir.
+- **macOS PF transparan redirect** — PF, 443 trafiğini tpws'in dinlediği porta (varsayılan **988**) yönlendirir. TLS şifresi çözülmez; TLS `ClientHello` bölme noktalarından parçalanır ve out-of-band bayt ile gönderilir (`--split-pos=1,midsld --oob=tls`) — böylece DPI, SNI'yi yeniden birleştirip göremez.
 - **Seçici** — yalnızca hostlist'teki domainler desync edilir; gerisi pass-through (etkilenmez).
 - **Tek seferlik admin** — kurulumda bir kez yönetici onayı (parolasız helper + sudoers) verilir; sonrasında `on` / `off` parolasız çalışır.
 - **Port çakışmaz** — varsayılan port 988, Expo ve benzeri geliştirici araçlarıyla çakışmaz; istediğiniz portu seçebilirsiniz.
@@ -107,7 +107,7 @@ Only the domains you choose are affected (e.g. Discord); all other traffic flows
 #### How it works
 
 - **Engine: tpws** — an open-source DPI-bypass engine ([bol-van/zapret](https://github.com/bol-van/zapret)). It is **built from source** during installation (`git clone --depth 1 zapret` → `make mac`) and placed at `~/.spoofdpi-tr/bin/tpws`. No prebuilt binary is downloaded.
-- **macOS PF transparent redirect** — PF redirects port 443 traffic to the port tpws listens on (default **988**). TLS is never decrypted; only the SNI record inside the TLS `ClientHello` is rewritten (`--tlsrec=sni`) before being sent to the destination server.
+- **macOS PF transparent redirect** — PF redirects port 443 traffic to the port tpws listens on (default **988**). TLS is never decrypted; the TLS `ClientHello` is fragmented at split points and sent with an out-of-band byte (`--split-pos=1,midsld --oob=tls`) so the DPI cannot reassemble the SNI.
 - **Selective** — only domains in the hostlist are desynced; everything else passes through unaffected.
 - **One-time admin** — installation asks for admin approval once (passwordless helper + sudoers); afterwards `on` / `off` run without a password.
 - **No port conflicts** — the default port 988 does not collide with Expo and similar developer tools; you can pick any port.

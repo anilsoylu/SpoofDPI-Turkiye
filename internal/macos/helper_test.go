@@ -21,7 +21,8 @@ func TestHelperScriptCommands(t *testing.T) {
 		"write_plist",
 		"/Users/x/.spoofdpi-tr/bin/tpws",
 		"/Users/x/.spoofdpi-tr/hostlist.txt",
-		"--tlsrec=sni",
+		"--split-pos=1,midsld",
+		"--oob=tls",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("HelperScript plist üretimi %q içermeli", want)
@@ -69,7 +70,8 @@ func TestHelperPlistSingleSource(t *testing.T) {
 		"--user=root",
 		"--bind-addr=127.0.0.1",
 		"--hostlist=${HOSTLIST}",
-		"--tlsrec=sni",
+		"--split-pos=1,midsld",
+		"--oob=tls",
 		"--port=${port}",
 	} {
 		if !strings.Contains(s, want) {
