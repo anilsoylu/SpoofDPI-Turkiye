@@ -84,7 +84,11 @@ func TestHelperPlistSingleSource(t *testing.T) {
 // /etc/pf.conf anchor dosyasını yeniden okur, bu yüzden stop ikisini de temizler.
 func TestHelperStopStaysOffAcrossBoot(t *testing.T) {
 	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt")
-	stop := s[strings.Index(s, "  stop)"):strings.Index(s, "  status)")]
+	from, to := strings.Index(s, "  stop)"), strings.Index(s, "  status)")
+	if from < 0 || to < from {
+		t.Fatalf("stop dalı bulunamadı: from=%d to=%d", from, to)
+	}
+	stop := s[from:to]
 	for _, want := range []string{`rm -f "$PLIST"`, `: > "$ANCHOR_PATH"`} {
 		if !strings.Contains(stop, want) {
 			t.Errorf("stop dalı %q içermeli", want)
