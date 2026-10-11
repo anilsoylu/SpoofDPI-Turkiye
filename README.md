@@ -46,6 +46,7 @@ spoofdpi-tr remove discord.com # listeden domain çıkar
 spoofdpi-tr set a.com b.com  # listeyi verilen domainlerle tamamen değiştir
 spoofdpi-tr list             # bypass edilen domainleri listele
 spoofdpi-tr port 9090        # tpws redirect portunu değiştir (1-65535)
+spoofdpi-tr update-engine   # tpws motorunu son zapret sürümünden yeniden derle
 spoofdpi-tr uninstall        # tamamen kaldır
 ```
 
@@ -136,6 +137,7 @@ spoofdpi-tr remove discord.com # remove a domain from the list
 spoofdpi-tr set a.com b.com  # replace the list entirely with given domains
 spoofdpi-tr list             # list bypassed domains
 spoofdpi-tr port 9090        # change the tpws redirect port (1-65535)
+spoofdpi-tr update-engine   # rebuild the tpws engine from latest zapret source
 spoofdpi-tr uninstall        # remove everything
 ```
 

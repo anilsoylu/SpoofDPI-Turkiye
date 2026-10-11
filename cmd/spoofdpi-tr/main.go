@@ -48,6 +48,8 @@ func main() {
 		err = runPort(args)
 	case "uninstall":
 		err = runUninstall(args)
+	case "update-engine":
+		err = runUpdateEngine()
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -79,6 +81,7 @@ Komutlar:
   list            Bypass edilen domainleri göster
   port <numara>   tpws redirect portunu değiştir (1-65535)
   uninstall       Tüm yapılandırma ve sistem dosyalarını kaldır [-y]
+  update-engine   tpws motorunu son zapret sürümünden yeniden derle
   version         Sürümü göster
 `)
 }
@@ -364,6 +367,37 @@ func runUninstall(args []string) error {
 	}
 
 	fmt.Println("✓ Tamamen kaldırıldı.")
+	return nil
+}
+
+// runUpdateEngine, tpws motorunu son zapret kaynağından yeniden derleyip kurar.
+// Servis çalışıyorsa önce durdurulur, derleme sonrası (başarılı da olsa,
+// başarısız da olsa) eski haline döndürülür; derleme başarısızsa eski binary
+// yerinde kaldığından servis eski motorla devam eder.
+func runUpdateEngine() error {
+	running := installedSystemFiles() && macos.IsRunning()
+	if running {
+		if err := macos.Off(); err != nil {
+			return fmt.Errorf("servis durdurulamadı: %w", err)
+		}
+	}
+
+	fmt.Println("tpws motoru güncelleniyor (son zapret kaynağından derleniyor)...")
+	buildErr := engine.BuildFromSource(engine.ZapretRepo)
+
+	if running {
+		cfg, err := config.Load()
+		if err != nil {
+			return fmt.Errorf("config okunamadı, servis kapalı kaldı — 'spoofdpi-tr on' ile başlatın: %w", err)
+		}
+		if err := macos.On(cfg.Port, cfg.Domains); err != nil {
+			return fmt.Errorf("servis başlatılamadı — 'spoofdpi-tr on' ile deneyin: %w", err)
+		}
+	}
+	if buildErr != nil {
+		return buildErr
+	}
+	fmt.Println("✓ tpws motoru güncellendi.")
 	return nil
 }
 
