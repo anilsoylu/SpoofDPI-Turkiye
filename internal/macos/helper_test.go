@@ -21,7 +21,7 @@ func TestHelperScriptCommands(t *testing.T) {
 		"write_plist",
 		"/Users/x/.spoofdpi-tr/bin/tpws",
 		"/Users/x/.spoofdpi-tr/hostlist.txt",
-		"--split-pos=1,midsld",
+		"--split-pos=2",
 		"--oob=tls",
 	} {
 		if !strings.Contains(s, want) {
@@ -70,7 +70,7 @@ func TestHelperPlistSingleSource(t *testing.T) {
 		"--bind-addr=127.0.0.1",
 		"--hostlist=${HOSTLIST}",
 		"--hostlist-exclude=${EXCLUDES}",
-		"--split-pos=1,midsld",
+		"--split-pos=2",
 		"--oob=tls",
 		"--port=${port}",
 	} {

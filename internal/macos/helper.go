@@ -62,6 +62,11 @@ EOF
 
 # write_plist, LaunchDaemon plist'ini GÜNCEL portla yeniden üretir (BUG1 fix).
 # tpws bin + hostlist yolu install anında gömülüdür; yalnızca port değişkendir.
+#
+# Desync stratejisi kasten "--split-pos=2" (midsld YOK): midsld, SNI konumuna
+# bağlı hesap yapar ve alışılmadık ClientHello'ları bozar (Discord masaüstü
+# updater'ı native-tls ile asılı kalır/RST yer); düz "2" her hello şekliyle
+# çalışır ve DPI'ı yine atlatır (ölçüldü: curl + native-tls probe 200).
 write_plist() {
   local port="$1"
   cat > "$PLIST" <<EOF
@@ -79,7 +84,7 @@ write_plist() {
 		<string>--bind-addr=127.0.0.1</string>
 		<string>--hostlist=${HOSTLIST}</string>
 		<string>--hostlist-exclude=${EXCLUDES}</string>
-		<string>--split-pos=1,midsld</string>
+		<string>--split-pos=2</string>
 		<string>--oob=tls</string>
 	</array>
 	<key>RunAtLoad</key>
