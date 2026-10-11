@@ -46,8 +46,13 @@ struct MenuBarPanel: View {
             }
         }
         .frame(width: 332)
-        // İlk açılışta domains metnini state ile doldur (editor henüz odakta değil).
-        .onAppear { syncDomainsTextIfUnfocused() }
+        // Pencere her açıldığında durumu tazele: servis app dışında
+        // değişmiş olabilir (terminal, reboot) — stale yeşil tik önlenir.
+        // refresh() ~60ms, açılışta hissedilmez.
+        .onAppear {
+            state.refresh()
+            syncDomainsTextIfUnfocused()
+        }
         // state.domains harici/kaydet sonrası değişirse metni senkronla — ama
         // YALNIZCA editor odakta değilken (kullanıcı yazarken ezme; BUG3 korunur,
         // #5: stale TextEditor çözülür).
