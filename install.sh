@@ -11,6 +11,20 @@ SPOOF_DIR="$HOME/.spoofdpi-tr"
 TPWS_DIR="$SPOOF_DIR/bin"
 TPWS_BIN="$TPWS_DIR/tpws"
 
+# Bayraklar: --rebuild-tpws verilirse kurulu motor yeniden derlenir.
+# (curl ile: curl ... | bash -s -- --rebuild-tpws)
+REBUILD_TPWS=0
+for arg in "$@"; do
+  case "$arg" in
+    --rebuild-tpws) REBUILD_TPWS=1 ;;
+    -h|--help)
+      echo "kullanım: install.sh [--rebuild-tpws]"
+      exit 0
+      ;;
+    *) echo "bilinmeyen bayrak: $arg" >&2; exit 1 ;;
+  esac
+done
+
 # Platform kontrolü — yalnızca macOS.
 if [ "$(uname -s)" != "Darwin" ]; then
   echo "Bu araç şu an yalnızca macOS destekler." >&2
@@ -85,8 +99,8 @@ esac
 #    İndirilmiş binary kullanılmaz (güvenlik: denetlenebilir, kaynaktan derleme).
 # ---------------------------------------------------------------------------
 build_tpws_from_source() {
-  if [ -x "$TPWS_BIN" ]; then
-    echo "✓ tpws zaten kurulu: $TPWS_BIN"
+  if [ "$REBUILD_TPWS" -eq 0 ] && [ -x "$TPWS_BIN" ]; then
+    echo "✓ tpws zaten kurulu: $TPWS_BIN (yeniden derlemek için: install.sh --rebuild-tpws)"
     return 0
   fi
 
