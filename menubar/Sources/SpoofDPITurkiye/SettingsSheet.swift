@@ -8,7 +8,6 @@ struct SettingsScreen: View {
     var onBack: () -> Void
 
     @State private var portValue: Int = 8080
-    @State private var showUninstallAlert = false
 
     // Kaydedilmemiş port değişikliği var mı? Sadece farklıysa "Uygula" aktif.
     private var portDirty: Bool { portValue != state.port }
@@ -98,7 +97,7 @@ struct SettingsScreen: View {
 
                 Section {
                     Button(role: .destructive) {
-                        showUninstallAlert = true
+                        confirmUninstall()
                     } label: {
                         Label(state.t("settings.uninstall"), systemImage: "trash")
                     }
@@ -120,12 +119,20 @@ struct SettingsScreen: View {
         .onChange(of: state.port) { _, newValue in
             if !state.busy { portValue = newValue }
         }
-        .alert(state.t("uninstall.confirm"), isPresented: $showUninstallAlert) {
-            Button(state.t("uninstall.confirm.btn"), role: .destructive) {
-                state.uninstall()
-                onBack()
-            }
-            Button(state.t("cancel"), role: .cancel) {}
-        }
+    }
+
+    // Kaldırma onayı AppKit modalıyla alınır: MenuBarExtra penceresi
+    // non-key/transient olduğundan SwiftUI .alert butonları tıklama almaz
+    // (dialog açılır ama "Kaldır" işlem yapmaz). NSAlert.runModal kendi
+    // event döngüsünde çalışır ve her zaman tıklanabilir.
+    private func confirmUninstall() {
+        let alert = NSAlert()
+        alert.messageText = state.t("uninstall.confirm")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: state.t("uninstall.confirm.btn"))
+        alert.addButton(withTitle: state.t("cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        state.uninstall()
+        onBack()
     }
 }

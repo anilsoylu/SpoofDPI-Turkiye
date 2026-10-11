@@ -50,6 +50,8 @@ func main() {
 		err = runUninstall(args)
 	case "update-engine":
 		err = runUpdateEngine()
+	case "upgrade-helper":
+		err = runUpgradeHelper()
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -82,6 +84,7 @@ Komutlar:
   port <numara>   tpws redirect portunu değiştir (1-65535)
   uninstall       Tüm yapılandırma ve sistem dosyalarını kaldır [-y]
   update-engine   tpws motorunu son zapret sürümünden yeniden derle
+  upgrade-helper  Kurulu helper'ı güncel şablonla yenile (tek seferlik admin)
   version         Sürümü göster
 `)
 }
@@ -235,6 +238,12 @@ func runStatus() error {
 		fmt.Print(strings.TrimRight(out, "\n") + "\n")
 	} else {
 		fmt.Println("Kurulum: yok (install gerekli)")
+	}
+	// Kurulu helper eskiyse durum satırları (özellikle pf kontrolü) kör
+	// olabilir; kullanıcıyı tek seferlik yenilemeye yönlendir. Helper hiç
+	// yoksa (kurulum yok) uyarı basılmaz — yukarıda install önerildi zaten.
+	if stale, err := macos.HelperStale(); err == nil && stale {
+		fmt.Println("UYARI: helper güncel değil — yenileyin: spoofdpi-tr upgrade-helper")
 	}
 	return nil
 }
@@ -398,6 +407,28 @@ func runUpdateEngine() error {
 		return buildErr
 	}
 	fmt.Println("✓ tpws motoru güncellendi.")
+	return nil
+}
+
+// runUpgradeHelper, diskteki helper güncel şablondan sapmışsa TEK yönetici
+// diyaloğuyla yeniler. Eski helper'la durum tespiti kör kalır (pf kapalıyken
+// bile "açık" raporu) ve stop sonrası açılış temizliği yapılmaz; yenileme
+// bunları kalıcı düzeltir. Yollar/ID'ler sabit olduğundan yalnızca helper
+// dosyası yazılır (sudoers/pf.conf/plist'e dokunulmaz).
+func runUpgradeHelper() error {
+	stale, err := macos.HelperStale()
+	if err != nil {
+		return fmt.Errorf("helper okunamadı — önce 'spoofdpi-tr install' çalıştırın: %w", err)
+	}
+	if !stale {
+		fmt.Println("✓ helper güncel.")
+		return nil
+	}
+	fmt.Println("Helper güncelleniyor — yönetici parolası istenebilir (tek seferlik)...")
+	if err := macos.RefreshHelper(); err != nil {
+		return fmt.Errorf("helper yenilenemedi: %w", err)
+	}
+	fmt.Println("✓ helper güncellendi.")
 	return nil
 }
 
