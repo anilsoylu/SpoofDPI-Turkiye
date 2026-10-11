@@ -1,6 +1,6 @@
 // Package engine, tpws DPI-bypass motoru için saf yardımcılar sağlar.
 // tpws binary'si ~/.spoofdpi-tr/bin/tpws altında derli/hazır bulunur (PoC'de
-// doğrulanmıştır). Bu paket yalnızca yol/varlık ve argüman üretimi yapar;
+// doğrulanmıştır). Bu paket yalnızca yol/varlık ve hostlist helpers yapar;
 // kök (root) işlemleri helper script tarafından yürütülür.
 package engine
 
