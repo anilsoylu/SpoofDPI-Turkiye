@@ -12,10 +12,14 @@ import (
 // ayrıcalıklı işlemler (pfctl, launchctl, anchor + plist dosyası yazımı) burada
 // yapılır.
 //
-// tpwsBin ve hostlist install anında gömülür (kurulum kullanıcısına göre sabit
-// yollar). Böylece helper, plist'i HER `start <port>` çağrısında GÜNCEL portla
-// kendisi yeniden üretebilir (BUG1 fix): port değişince anchor da plist de aynı
-// porta hizalanır ve daemon taze başlar.
+// tpwsBin, hostlist ve excludes install anında gömülür (kurulum kullanıcısına
+// göre sabit yollar). Böylece helper, plist'i HER `start <port>` çağrısında
+// GÜNCEL portla kendisi yeniden üretebilir (BUG1 fix): port değişince anchor
+// da plist de aynı porta hizalanır ve daemon taze başlar.
+//
+// excludes (--hostlist-exclude), desync'i tolere edemeyen ama engelli de
+// olmayan host'lara desync uygulanmamasını sağlar (düz relay); örn.
+// Discord güncelleme CDN'i desync'li handshake'e yanıt vermez.
 //
 // Komutlar:
 //
@@ -30,7 +34,7 @@ import (
 //	                                 plist + anchor dosyalarını sil/boşalt ki açılışta
 //	                                 koruma kendiliğinden geri gelmesin.
 //	status                         : tpws çalışıyor mu + anchor dolu mu.
-func HelperScript(tpwsBin, hostlist string) string {
+func HelperScript(tpwsBin, hostlist, excludes string) string {
 	// %[n]$s ile alan adlarını sabitlere bağlıyoruz; bash içindeki $1/$2 gibi
 	// değişkenler Go format dizisinde %% kaçışıyla korunur.
 	return fmt.Sprintf(`#!/bin/bash
@@ -45,6 +49,7 @@ PLIST=%[4]q
 DAEMON_ID=%[5]q
 TPWS_BIN=%[6]q
 HOSTLIST=%[7]q
+EXCLUDES=%[8]q
 
 write_anchor() {
   local port="$1"
@@ -73,6 +78,7 @@ write_plist() {
 		<string>--port=${port}</string>
 		<string>--bind-addr=127.0.0.1</string>
 		<string>--hostlist=${HOSTLIST}</string>
+		<string>--hostlist-exclude=${EXCLUDES}</string>
 		<string>--split-pos=1,midsld</string>
 		<string>--oob=tls</string>
 	</array>
@@ -239,7 +245,7 @@ case "$cmd" in
     exit 2
     ;;
 esac
-`, AnchorName, AnchorPath, PFConfPath, LaunchDaemonPath, LaunchDaemonID, tpwsBin, hostlist)
+`, AnchorName, AnchorPath, PFConfPath, LaunchDaemonPath, LaunchDaemonID, tpwsBin, hostlist, excludes)
 }
 
 // Plist üretimi TEK KAYNAK olarak helper'ın write_plist fonksiyonundadır (#2);

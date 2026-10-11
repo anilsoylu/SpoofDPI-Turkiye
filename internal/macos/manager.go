@@ -40,6 +40,9 @@ func On(tpwsPort int, domains []string) error {
 	if err := engine.WriteHostlist(domains); err != nil {
 		return fmt.Errorf("hostlist yazılamadı: %w", err)
 	}
+	if err := engine.WriteExcludes(); err != nil {
+		return fmt.Errorf("excludes yazılamadı: %w", err)
+	}
 	cmd := exec.Command("sudo", "-n", HelperPath, "start", strconv.Itoa(tpwsPort))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -75,7 +78,7 @@ func Status() (string, error) {
 // bunu `osascript -e 'do shell script "..." with administrator privileges'` ile
 // çalıştırır. Bu fonksiyon SAFtır (yalnızca metin üretir).
 func InstallScript(patchedPFConf string, tpwsBin string, sudoUser string) string {
-	helper := HelperScript(tpwsBin, engine.HostlistPath())
+	helper := HelperScript(tpwsBin, engine.HostlistPath(), engine.ExcludePath())
 	sudoers := SudoersRule(sudoUser)
 
 	var b strings.Builder

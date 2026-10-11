@@ -12,7 +12,7 @@ import (
 // Yollar (tpws bin + hostlist) kurulum kullanıcısına göre sabit gömülür;
 // karşılaştırma ve yenileme aynı şablonu kullanır.
 func ExpectedHelper() string {
-	return HelperScript(engine.BinPath(), engine.HostlistPath())
+	return HelperScript(engine.BinPath(), engine.HostlistPath(), engine.ExcludePath())
 }
 
 // helperStaleContent, diskteki helper birebir güncel şablonla eşleşmiyorsa

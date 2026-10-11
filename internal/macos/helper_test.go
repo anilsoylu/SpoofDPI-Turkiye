@@ -6,7 +6,7 @@ import (
 )
 
 func TestHelperScriptCommands(t *testing.T) {
-	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt")
+	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt", "/Users/x/.spoofdpi-tr/excludes.txt")
 	for _, want := range []string{"start)", "stop)", "status)", "pfctl", "launchctl"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("HelperScript %q içermeli", want)
@@ -38,7 +38,7 @@ func TestHelperScriptCommands(t *testing.T) {
 // doğruladığını garanti eder. sudoers 'helper *' olduğundan kullanıcı keyfi
 // argümanla çağırabilir; helper sayısal-olmayan port'u reddetmelidir.
 func TestHelperScriptValidatesPort(t *testing.T) {
-	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt")
+	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt", "/Users/x/.spoofdpi-tr/excludes.txt")
 	// Rakam-dışı reddi (case kalıbı) ve aralık kontrolü mevcut olmalı.
 	for _, want := range []string{"*[!0-9]*", "65535", "-lt 1"} {
 		if !strings.Contains(s, want) {
@@ -55,7 +55,7 @@ func TestHelperScriptValidatesPort(t *testing.T) {
 // olduğunu (#2) ve doğru anahtarları/argümanları ürettiğini doğrular. Go tarafı
 // artık plist üretmediğinden plist içeriği yalnızca helper script'te yaşar.
 func TestHelperPlistSingleSource(t *testing.T) {
-	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt")
+	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt", "/Users/x/.spoofdpi-tr/excludes.txt")
 	for _, want := range []string{
 		"write_plist",
 		"<key>Label</key>",
@@ -69,6 +69,7 @@ func TestHelperPlistSingleSource(t *testing.T) {
 		"--user=root",
 		"--bind-addr=127.0.0.1",
 		"--hostlist=${HOSTLIST}",
+		"--hostlist-exclude=${EXCLUDES}",
 		"--split-pos=1,midsld",
 		"--oob=tls",
 		"--port=${port}",
@@ -83,7 +84,7 @@ func TestHelperPlistSingleSource(t *testing.T) {
 // korur: launchd /Library/LaunchDaemons altındaki her plist'i açılışta yükler ve
 // /etc/pf.conf anchor dosyasını yeniden okur, bu yüzden stop ikisini de temizler.
 func TestHelperStopStaysOffAcrossBoot(t *testing.T) {
-	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt")
+	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt", "/Users/x/.spoofdpi-tr/excludes.txt")
 	from, to := strings.Index(s, "  stop)"), strings.Index(s, "  status)")
 	if from < 0 || to < from {
 		t.Fatalf("stop dalı bulunamadı: from=%d to=%d", from, to)
