@@ -203,9 +203,13 @@ case "$cmd" in
     fi
     write_anchor "$port"
     write_plist "$port"
-    pfctl -f "$PF_CONF"
+    # pfctl -f her çağrıda "Use of -f option..." bilgi satırını stderr'e basar;
+    # bu gürültü CLI çıktısına ve menubar geri bildirimine sızardı. Hata
+    # durumunda set -e zaten abort eder; sonraki verify_listen + status
+    # kontrolleri gerçek arızayı yakalar.
+    pfctl -f "$PF_CONF" 2>/dev/null
     pfctl -e 2>/dev/null || true
-    pfctl -a "$ANCHOR_NAME" -f "$ANCHOR_PATH"
+    pfctl -a "$ANCHOR_NAME" -f "$ANCHOR_PATH" 2>/dev/null
     daemon_start "$port"
     if ! verify_listen "$port"; then
       echo "HATA: tpws ${port} portunu dinlemiyor (daemon baslatilamadi)." >&2
