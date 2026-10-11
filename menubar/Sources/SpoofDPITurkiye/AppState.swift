@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 
 // MARK: - Config JSON modeli
 
@@ -139,6 +140,9 @@ final class AppState: ObservableObject {
             lastMessage = lang == .tr ? "Kaldırıldı." : "Uninstalled."
             refresh()
             busy = false
+            // Kaldırma sonrası ortada çalışmayan bir panel bırakma; çık.
+            // (@MainActor bağlamında main thread'de çalışır.)
+            NSApplication.shared.terminate(nil)
         }
     }
 
