@@ -1,13 +1,12 @@
 // Package engine, tpws DPI-bypass motoru için saf yardımcılar sağlar.
 // tpws binary'si ~/.spoofdpi-tr/bin/tpws altında derli/hazır bulunur (PoC'de
-// doğrulanmıştır). Bu paket yalnızca yol/varlık ve argüman üretimi yapar;
+// doğrulanmıştır). Bu paket yalnızca yol/varlık ve hostlist helpers yapar;
 // kök (root) işlemleri helper script tarafından yürütülür.
 package engine
 
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/anilsoylu/SpoofDPI-Turkiye/internal/config"
@@ -58,21 +57,4 @@ func WriteHostlist(domains []string) error {
 		sb.WriteString("\n")
 	}
 	return os.WriteFile(path, []byte(sb.String()), 0o644)
-}
-
-// Args, tpws'i çalıştırmak için doğrulanmış (PoC) argüman dizisini üretir.
-//
-// KAZANAN desync ayarı SADECE --tlsrec=sni'dir (Türkiye'de Discord'u açan tek
-// ayar). --split-pos/--disorder/--oob/--mss macOS'ta çalışmaz/Linux-only'dir.
-// Domainler bir DOSYADAN (--hostlist) okunur; böylece add/remove yalnızca
-// dosyayı yeniden yazıp tpws'i reload eder (plist değişmez). tpws "subdomain
-// auto apply" yapar; düz domain yeterlidir.
-func Args(port int) []string {
-	return []string{
-		"--user=root",
-		"--port", strconv.Itoa(port),
-		"--bind-addr=127.0.0.1",
-		"--hostlist", HostlistPath(),
-		"--tlsrec=sni",
-	}
 }

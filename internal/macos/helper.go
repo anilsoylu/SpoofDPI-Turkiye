@@ -26,7 +26,9 @@ import (
 //	                                 Domainler tpws tarafından --hostlist
 //	                                 dosyasından okunur; daemon taze başladığında
 //	                                 güncel hostlist'i yeniden okur.
-//	stop                           : tpws daemon'u durdur, anchor kurallarını boşalt.
+//	stop                           : tpws daemon'u durdur, anchor kurallarını boşalt,
+//	                                 plist + anchor dosyalarını sil/boşalt ki açılışta
+//	                                 koruma kendiliğinden geri gelmesin.
 //	status                         : tpws çalışıyor mu + anchor dolu mu.
 func HelperScript(tpwsBin, hostlist string) string {
 	// %[n]$s ile alan adlarını sabitlere bağlıyoruz; bash içindeki $1/$2 gibi
@@ -77,10 +79,7 @@ write_plist() {
 	<key>RunAtLoad</key>
 	<true/>
 	<key>KeepAlive</key>
-	<dict>
-		<key>SuccessfulExit</key>
-		<false/>
-	</dict>
+	<true/>
 	<key>ThrottleInterval</key>
 	<integer>5</integer>
 	<key>ProcessType</key>
@@ -207,6 +206,12 @@ case "$cmd" in
   stop)
     daemon_stop
     pfctl -a "$ANCHOR_NAME" -F all 2>/dev/null || true
+    # launchd bootstraps every plist in /Library/LaunchDaemons at boot, so leaving
+    # the file behind turns protection back on by itself. start rewrites it.
+    rm -f "$PLIST"
+    # /etc/pf.conf keeps its "load anchor" line, which would reload these rules at
+    # boot with no tpws behind them. Empty loads clean; a missing file breaks pfctl.
+    : > "$ANCHOR_PATH"
     echo "spoofdpi-tr durdu"
     ;;
   status)
@@ -221,7 +226,9 @@ case "$cmd" in
     else
       echo "tpws: durdu"
     fi
-    if pfctl -a "$ANCHOR_NAME" -s nat 2>/dev/null | grep -q rdr; then
+    # Loaded rules mean nothing while pf itself is disabled.
+    if pfctl -s info 2>/dev/null | grep -q "Status: Enabled" \
+       && pfctl -a "$ANCHOR_NAME" -s nat 2>/dev/null | grep -q rdr; then
       echo "pf-anchor: dolu"
     else
       echo "pf-anchor: bos"

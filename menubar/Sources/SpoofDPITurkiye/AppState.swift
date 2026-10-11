@@ -63,34 +63,13 @@ final class AppState: ObservableObject {
     // MARK: - Servis durumu
 
     private func isServiceRunning() -> Bool {
-        // Birincil: yeni CLI'ın `status` çıktısını ayrıştır. Helper "tpws: calisiyor"
-        // satırını üretir (status komutu bunu yansıtır).
-        if cliInstalled {
-            let r = CLI.status()
-            let out = r.out.lowercased()
-            if out.contains("calisiyor") || out.contains("çalışıyor") {
-                return true
-            }
-            if out.contains("durdu") || out.contains("bos") || out.contains("boş") {
-                return false
-            }
-        }
-
-        // Yedek: launchctl üzerinden LaunchDaemon yüklü mü kontrol et.
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = ["list"]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-
-        do { try process.run() } catch { return false }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-
-        let output = String(data: data, encoding: .utf8) ?? ""
-        return output.contains("com.spoofdpi-tr")
+        // Koruma ancak tpws çalışıyor VE PF anchor yüklüyken gerçekten açıktır;
+        // yalnızca biri varsa 443 ya bypasssız akar ya da hiç akmaz. Eski kod
+        // gevşek kelime eşleşmesi yapıyor, bulamazsa launchctl'de etiketi görünce
+        // "açık" diyordu — bu yüzden kapalıyken açık görünüyordu.
+        guard cliInstalled else { return false }
+        let out = CLI.status().out.lowercased()
+        return out.contains("tpws: calisiyor") && out.contains("pf-anchor: dolu")
     }
 
     // MARK: - Aksiyonlar

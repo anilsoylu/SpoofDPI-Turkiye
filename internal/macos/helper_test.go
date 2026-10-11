@@ -60,8 +60,7 @@ func TestHelperPlistSingleSource(t *testing.T) {
 		"write_plist",
 		"<key>Label</key>",
 		"<key>RunAtLoad</key>",
-		"<key>KeepAlive</key>",
-		"<key>SuccessfulExit</key>",
+		"<key>KeepAlive</key>\n\t<true/>",
 		"<key>ThrottleInterval</key>",
 		"<key>ProcessType</key>",
 		"<string>Adaptive</string>",
@@ -77,6 +76,28 @@ func TestHelperPlistSingleSource(t *testing.T) {
 		if !strings.Contains(s, want) {
 			t.Errorf("helper write_plist %q içermeli", want)
 		}
+	}
+}
+
+// TestHelperStopStaysOffAcrossBoot, kullanıcının "her açılışta kapalı" şartını
+// korur: launchd /Library/LaunchDaemons altındaki her plist'i açılışta yükler ve
+// /etc/pf.conf anchor dosyasını yeniden okur, bu yüzden stop ikisini de temizler.
+func TestHelperStopStaysOffAcrossBoot(t *testing.T) {
+	s := HelperScript("/Users/x/.spoofdpi-tr/bin/tpws", "/Users/x/.spoofdpi-tr/hostlist.txt")
+	from, to := strings.Index(s, "  stop)"), strings.Index(s, "  status)")
+	if from < 0 || to < from {
+		t.Fatalf("stop dalı bulunamadı: from=%d to=%d", from, to)
+	}
+	stop := s[from:to]
+	for _, want := range []string{`rm -f "$PLIST"`, `: > "$ANCHOR_PATH"`} {
+		if !strings.Contains(stop, want) {
+			t.Errorf("stop dalı %q içermeli", want)
+		}
+	}
+	// Anchor dosyası SİLİNMEMELİ: pf.conf'taki "load anchor" satırı eksik dosyada
+	// pfctl -f'i açılışta hata verdirir, boş dosya sorunsuz yüklenir.
+	if strings.Contains(stop, `rm -f "$ANCHOR_PATH"`) {
+		t.Error("stop anchor dosyasını silmemeli, boşaltmalı")
 	}
 }
 
